@@ -19,7 +19,7 @@ mavenPublishing {
     pom {
         name.set("linechart")
         description.set("Jetpack Compose LineChart Library")
-        url.set("https://github.com/TeddKo/linechart")
+        url.set("https://github.com/TeddKo/LineChart")
         inceptionYear.set("2025")
 
         licenses {
@@ -41,8 +41,8 @@ mavenPublishing {
 
         scm {
             url.set("https://github.com/TeddKo/linechart")
-            connection.set("scm:git:git://github.com/TeddKo/linechart.git")
-            developerConnection.set("scm:git:git://github.com/TeddKo/linechart.git")
+            connection.set("scm:git:git://github.com/TeddKo/LineChart.git")
+            developerConnection.set("scm:git:git://github.com/TeddKo/LineChart.git")
         }
     }
 }
