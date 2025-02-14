@@ -18,9 +18,9 @@ mavenPublishing {
 
     pom {
         name.set("linechart")
-        description.set("Jetpack Compose linechart Library")
+        description.set("Jetpack Compose LineChart Library")
         url.set("https://github.com/TeddKo/linechart")
-        inceptionYear.set("2024")
+        inceptionYear.set("2025")
 
         licenses {
             license {
