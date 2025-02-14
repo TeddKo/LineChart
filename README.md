@@ -6,7 +6,11 @@
   <a href="https://opensource.org/licenses/Apache-2.0"><img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg"/></a>
 </p>
 <p align="center">
-A <strong>Jetpack Compose</strong> library for creating customizable line charts with smooth animations.
+  <strong>Jetpack Compose</strong> library for creating customizable line charts with smooth animations.
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/2e54e9c0-27a5-4381-b012-ce9675fb1f0d" width="480"/>
 </p>
 
 ## 🚀 Features
