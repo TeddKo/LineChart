@@ -17,7 +17,7 @@ mavenPublishing {
     coordinates("io.github.teddko", "linechart", "1.0.0")
 
     pom {
-        name.set("linechart")
+        name.set("LineChart")
         description.set("Jetpack Compose LineChart Library")
         url.set("https://github.com/TeddKo/LineChart")
         inceptionYear.set("2025")
@@ -40,7 +40,7 @@ mavenPublishing {
         }
 
         scm {
-            url.set("https://github.com/TeddKo/linechart")
+            url.set("https://github.com/TeddKo/LineChart")
             connection.set("scm:git:git://github.com/TeddKo/LineChart.git")
             developerConnection.set("scm:git:git://github.com/TeddKo/LineChart.git")
         }
