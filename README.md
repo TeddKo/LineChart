@@ -6,6 +6,10 @@
 * 🎨 Customizable styling, axis labels, and grid lines
 * 📱 Responsive and adaptive layout
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/2e54e9c0-27a5-4381-b012-ce9675fb1f0d" width="480"/>
+</p>
+
 📦 Installation
 
 ```kotlin
