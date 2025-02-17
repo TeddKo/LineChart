@@ -1,4 +1,4 @@
-# LineChart
+# 📈 LineChart
 
 <p align="center">
   <a href="https://search.maven.org/artifact/io.github.teddko/linechart"><img alt="MavenCentral" src="https://img.shields.io/maven-central/v/io.github.teddko/linechart.svg"/></a>
@@ -9,7 +9,7 @@
   <strong>Jetpack Compose</strong> library for creating customizable line charts with smooth animations.
 </p>
 
-🚀 Features
+# 🚀 Features
 * 🎯 Smooth animations using Jetpack Compose
 * 📊 Supports multiple data points and real-time updates
 * 🎨 Customizable styling, axis labels, and grid lines
@@ -19,7 +19,7 @@
   <img src="https://github.com/user-attachments/assets/2e54e9c0-27a5-4381-b012-ce9675fb1f0d" width="480"/>
 </p>
 
-📦 Installation
+# 📦 Installation
 
 ```kotlin
 dependencies {
@@ -27,7 +27,7 @@ dependencies {
 }
 ```
 
-📖 Basic Usage
+# 📖 Basic Usage
 
 ```kotlin
 @Composable
@@ -54,7 +54,7 @@ fun LineChartDemo() {
 }
 ```
 
-🎨 Customization
+# 🎨 Customization
 
 ```kotlin
 @Composable
@@ -84,11 +84,11 @@ fun CustomizedLineChart() {
 }
 ```
 
-🛠️ Development Environment
+# 🛠️ Development Environment
 * **Kotlin 2.0+**
 * **Android Studio Hedgehog+**
 * **Jetpack Compose 1.7+**
 * **Gradle Kotlin DSL applied**
 
-📝 License
+# 📝 License
 This project is licensed under the Apache 2.0 License.
