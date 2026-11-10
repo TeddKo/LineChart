@@ -77,6 +77,7 @@ private fun DrawScope.drawOverlayPlot(state: LineChartState, spec: ChartSpec, pu
         spec.cachedIndex = index
         spec.cachedWidth = main.width
         spec.legends = spec.wrappedLegends(series, computed, index, main.width)
+        spec.reservedLines = growReserved(spec.reservedLines, spec.legends.map { it.size })
         spec.paneLegends = computed.panes.mapIndexed { k, pane -> pane.legend(spec, series, computed.paneMarks[k], index) }
     }
     if (computed.settings.legend) {

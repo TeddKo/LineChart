@@ -44,7 +44,7 @@ internal class Frame(
 
 /**
  * Display configuration and reusable draw resources of one panel, including the wrapped header and overlay legend lines of the last drawn [cachedIndex] of [cachedSeries] and [cachedComputed] at [cachedWidth],
- * and the line count [reservedLines] of each of them at the last item, which sizes the header and caps the lines drawn.
+ * and the line count [reservedLines] of each of them, grown to the largest seen, which sizes the header and caps the lines drawn.
  */
 internal class ChartSpec(
     val type: ChartType,
@@ -164,7 +164,13 @@ internal fun ChartSpec.priceText(value: Double, computed: Computed): String =
     if (computed.settings.scale == PriceScale.Percent && computed.base > 0.0) percentText(value, computed.base) else priceFormatter(value)
 
 /**
- * Line count of the header and of each overlay legend at the last item when wrapped to [width], kept while the series, the indicators and [width] stay the same.
+ * Per-legend maximum of [reserved] and [lines].
+ */
+internal fun growReserved(reserved: List<Int>, lines: List<Int>): List<Int> =
+    List(max(reserved.size, lines.size)) { max(reserved.getOrElse(it) { 0 }, lines.getOrElse(it) { 0 }) }
+
+/**
+ * Line count of the header and of each overlay legend wrapped to [width], starting from the last item and grown by [growReserved], reset when the series, the indicators or [width] change.
  */
 private fun ChartSpec.reserveLegendLines(series: Series, computed: Computed, width: Float): List<Int> {
     if (reservedSeries !== series || reservedComputed !== computed || reservedWidth != width) {

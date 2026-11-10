@@ -44,4 +44,10 @@ class LegendWrapTest {
         assertEquals(2, wrapped.size)
         assertEquals(Color.Blue, wrapped[1].spanStyles.single().item.color)
     }
+
+    @Test
+    fun growReserved_keepsTheLargerCountOfEachLegend() {
+        assertEquals(listOf(3, 2, 1), growReserved(listOf(2, 2), listOf(3, 1, 1)))
+        assertEquals(listOf(2, 2), growReserved(listOf(2, 2), listOf(1)))
+    }
 }
