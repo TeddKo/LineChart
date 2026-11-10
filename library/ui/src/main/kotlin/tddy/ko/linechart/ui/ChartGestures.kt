@@ -67,8 +67,10 @@ internal fun Modifier.chartGestures(state: LineChartState): Modifier = pointerIn
                     val tracker = VelocityTracker()
                     do {
                         val event = awaitPointerEvent()
-                        state.transform(event.calculateCentroid().x, event.calculateZoom(), event.calculatePan().x)
-                        event.changes.firstOrNull { it.pressed }?.let { tracker.addPosition(it.uptimeMillis, it.position) }
+                        event.changes.firstOrNull { it.pressed }?.let {
+                            state.transform(event.calculateCentroid().x, event.calculateZoom(), event.calculatePan().x)
+                            tracker.addPosition(it.uptimeMillis, it.position)
+                        }
                         event.changes.forEach { it.consume() }
                     } while (event.changes.any { it.pressed })
                     val slot = state.slotPx()

@@ -22,6 +22,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +34,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
@@ -37,7 +42,18 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.first
 
 private const val ENTRY_MILLIS = 600
+private const val PULSE_MILLIS = 1500
 private const val TEXT_CACHE_SIZE = 128
+
+private fun TimeframeUnit.labelRes(): Int = when (this) {
+    TimeframeUnit.Tick -> R.string.linechart_unit_tick
+    TimeframeUnit.Second -> R.string.linechart_unit_second
+    TimeframeUnit.Minute -> R.string.linechart_unit_minute
+    TimeframeUnit.Day -> R.string.linechart_unit_day
+    TimeframeUnit.Week -> R.string.linechart_unit_week
+    TimeframeUnit.Month -> R.string.linechart_unit_month
+    TimeframeUnit.Year -> R.string.linechart_unit_year
+}
 
 @Composable
 private fun defaultColors(): ChartColors = if (isSystemInDarkTheme()) ChartColors.KoreanDark else ChartColors.Korean
@@ -55,15 +71,34 @@ private fun ChartBody(
     textStyle: TextStyle,
 ) {
     val measurer = rememberTextMeasurer(TEXT_CACHE_SIZE)
-    val spec = remember(chartType, colors, maPeriods, timeframe, priceFormatter, timeFormatter, textStyle, measurer) {
-        ChartSpec(chartType, colors, maPeriods, timeframe, priceFormatter, timeFormatter, textStyle, measurer)
+    val labels = ChartLabels(
+        stringResource(R.string.linechart_open),
+        stringResource(R.string.linechart_high),
+        stringResource(R.string.linechart_low),
+        stringResource(R.string.linechart_close),
+        stringResource(R.string.linechart_volume),
+        timeframe?.let { stringResource(it.unit.labelRes()) }.orEmpty(),
+    )
+    val spec = remember(chartType, colors, maPeriods, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels) {
+        ChartSpec(chartType, colors, maPeriods, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels)
+    }
+    val pulse = if (chartType == ChartType.Candle) {
+        null
+    } else {
+        rememberInfiniteTransition(label = "pulse").animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(PULSE_MILLIS, easing = LinearEasing)),
+            label = "pulseValue",
+        )
     }
     LaunchedEffect(state) {
         snapshotFlow { state.itemCount }.first { it > 0 }
         if (state.entry.value < 1f) state.entry.animateTo(1f, tween(ENTRY_MILLIS))
     }
-    Box(modifier) {
+    Box(modifier.chartGestures(state)) {
         Spacer(Modifier.fillMaxSize().graphicsLayer().drawBehind { drawMain(state, spec) })
+        Spacer(Modifier.fillMaxSize().drawBehind { drawOverlay(state, spec, pulse?.value) })
     }
 }
 

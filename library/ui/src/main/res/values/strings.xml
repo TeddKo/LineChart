@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="linechart_open">O</string>
+    <string name="linechart_high">H</string>
+    <string name="linechart_low">L</string>
+    <string name="linechart_close">C</string>
+    <string name="linechart_volume">Vol</string>
+    <string name="linechart_unit_tick">tick</string>
+    <string name="linechart_unit_second">s</string>
+    <string name="linechart_unit_minute">m</string>
+    <string name="linechart_unit_day">D</string>
+    <string name="linechart_unit_week">W</string>
+    <string name="linechart_unit_month">M</string>
+    <string name="linechart_unit_year">Y</string>
+</resources>

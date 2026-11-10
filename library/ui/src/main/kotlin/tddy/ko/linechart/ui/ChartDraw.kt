@@ -42,6 +42,7 @@ internal class ChartSpec(
     val timeFormatter: ((Long) -> String)?,
     val textStyle: TextStyle,
     val measurer: TextMeasurer,
+    val labels: ChartLabels,
 ) {
     val path: Path = Path()
     private val formats = HashMap<String, SimpleDateFormat>()
@@ -70,12 +71,30 @@ internal fun extremeIndices(items: List<ChartData>, range: IntRange, type: Chart
  */
 internal fun candleBodyWidth(slot: Float): Float = max(1f, slot * BODY_SHARE)
 
+/**
+ * Localized header labels and the timeframe unit word of the moving average legend.
+ */
+internal data class ChartLabels(
+    val open: String,
+    val high: String,
+    val low: String,
+    val close: String,
+    val volume: String,
+    val unit: String,
+)
+
 private class View(val scroll: Float, val slot: Float, val visible: IntRange)
 
 private fun LineChartState.view(plotW: Float): View {
     val slot = slotFor(plotW)
     val scroll = clampScroll(scroll, itemCount, plotW, slot)
     return View(scroll, slot, visibleRange(itemCount, scroll, plotW, slot))
+}
+
+internal fun ChartSpec.tagLabel(series: Series, i: Int): String {
+    if (!series.timeAxis) return (i + 1).toString()
+    val date = series.items[i].date
+    return timeFormatter?.invoke(date) ?: time(tagPattern(timeframe, series.stepMs), date)
 }
 
 private fun ChartSpec.axisLabel(series: Series, i: Int): String {
