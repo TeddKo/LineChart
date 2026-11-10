@@ -51,6 +51,47 @@ private const val ENTRY_MILLIS = 600
 private const val PULSE_MILLIS = 1500
 private const val TEXT_CACHE_SIZE = 128
 
+private val NAME_RES: Map<String, Int> = mapOf(
+    "bb" to R.string.linechart_name_bb,
+    "env" to R.string.linechart_name_env,
+    "pc" to R.string.linechart_name_pc,
+    "ichimoku" to R.string.linechart_name_ichimoku,
+    "sar" to R.string.linechart_name_sar,
+    "pivot" to R.string.linechart_name_pivot,
+    "vwap" to R.string.linechart_name_vwap,
+    "vp" to R.string.linechart_name_vp,
+    "macd" to R.string.linechart_name_macd,
+    "macdo" to R.string.linechart_name_macdo,
+    "trix" to R.string.linechart_name_trix,
+    "sonar" to R.string.linechart_name_sonar,
+    "rsi" to R.string.linechart_name_rsi,
+    "stochf" to R.string.linechart_name_stochf,
+    "stochs" to R.string.linechart_name_stochs,
+    "willr" to R.string.linechart_name_willr,
+    "mfi" to R.string.linechart_name_mfi,
+    "psy" to R.string.linechart_name_psy,
+    "cci" to R.string.linechart_name_cci,
+    "dmi" to R.string.linechart_name_dmi,
+    "atr" to R.string.linechart_name_atr,
+    "tv" to R.string.linechart_name_tv,
+    "obv" to R.string.linechart_name_obv,
+    "vr" to R.string.linechart_name_vr,
+    "vo" to R.string.linechart_name_vo,
+    "mom" to R.string.linechart_name_mom,
+    "roc" to R.string.linechart_name_roc,
+    "disp" to R.string.linechart_name_disp,
+    "mid" to R.string.linechart_name_mid,
+    "upper" to R.string.linechart_name_upper,
+    "lower" to R.string.linechart_name_lower,
+    "signal" to R.string.linechart_name_signal,
+    "osc" to R.string.linechart_name_osc,
+    "conv" to R.string.linechart_name_conv,
+    "base" to R.string.linechart_name_base,
+    "lag" to R.string.linechart_name_lag,
+    "span1" to R.string.linechart_name_span1,
+    "span2" to R.string.linechart_name_span2,
+)
+
 private fun TimeframeUnit.labelRes(): Int = when (this) {
     TimeframeUnit.Tick -> R.string.linechart_unit_tick
     TimeframeUnit.Second -> R.string.linechart_unit_second
@@ -89,6 +130,7 @@ private fun ChartBody(
         stringResource(R.string.linechart_close),
         stringResource(R.string.linechart_volume),
         timeframe?.let { stringResource(it.unit.labelRes()) }.orEmpty(),
+        NAME_RES.mapValues { stringResource(it.value) },
     )
     val spec = remember(chartType, colors, timeframe, priceFormatter, timeFormatter, scaledStyle, measurer, labels, paneHeight) {
         ChartSpec(chartType, colors, timeframe, priceFormatter, timeFormatter, scaledStyle, measurer, labels, paneHeight)
