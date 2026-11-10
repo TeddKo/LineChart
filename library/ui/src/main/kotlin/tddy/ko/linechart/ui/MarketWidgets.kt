@@ -76,9 +76,9 @@ public fun TradeList(
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().height(RowHeight).padding(horizontal = RowPadding), verticalAlignment = Alignment.CenterVertically) {
             val header = textStyle.copy(color = colors.text)
-            if (showOption) BasicText(stringResource(R.string.market_size), Modifier.weight(1f), style = header)
-            BasicText(stringResource(R.string.market_trade_price), Modifier.weight(1f), style = header.copy(textAlign = TextAlign.Center))
-            BasicText(stringResource(R.string.market_trade_date), Modifier.weight(1f), style = header.copy(textAlign = TextAlign.End))
+            if (showOption) BasicText(stringResource(R.string.linechart_market_size), Modifier.weight(1f), style = header)
+            BasicText(stringResource(R.string.linechart_market_trade_price), Modifier.weight(1f), style = header.copy(textAlign = TextAlign.Center))
+            BasicText(stringResource(R.string.linechart_market_trade_date), Modifier.weight(1f), style = header.copy(textAlign = TextAlign.End))
         }
         trades.take(maxRows).forEach { trade ->
             Row(
@@ -160,8 +160,8 @@ public fun InstantTradeButtons(
     textStyle: TextStyle = MarketTextStyle,
 ) {
     Row(modifier.fillMaxWidth().padding(horizontal = RowPadding), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        InstantButton(stringResource(R.string.market_buy), bestAsk, stringResource(R.string.market_instant_buy_price), colors.up, onBuy, Modifier.weight(1f), colors, priceFormatter, textStyle)
-        InstantButton(stringResource(R.string.market_sell), bestBid, stringResource(R.string.market_instant_sell_price), colors.down, onSell, Modifier.weight(1f), colors, priceFormatter, textStyle)
+        InstantButton(stringResource(R.string.linechart_market_buy), bestAsk, stringResource(R.string.linechart_market_instant_buy_price), colors.up, onBuy, Modifier.weight(1f), colors, priceFormatter, textStyle)
+        InstantButton(stringResource(R.string.linechart_market_sell), bestBid, stringResource(R.string.linechart_market_instant_sell_price), colors.down, onSell, Modifier.weight(1f), colors, priceFormatter, textStyle)
     }
 }
 

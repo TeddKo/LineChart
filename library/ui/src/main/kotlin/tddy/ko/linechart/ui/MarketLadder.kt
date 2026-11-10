@@ -71,15 +71,15 @@ public fun OrderBookLadder(
     val fractions = remember(rows) { ladderFractions(rows) }
     val sideColor = if (side == MarketSide.Bid) colors.up else colors.down
     val primary = textStyle.color.takeOrElse { colors.crosshair }
-    val select = stringResource(R.string.market_ladder_select)
+    val select = stringResource(R.string.linechart_market_ladder_select)
     Column(modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().height(RowHeight).padding(horizontal = RowPadding),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            BasicText(stringResource(R.string.market_price), style = textStyle.copy(color = colors.text))
-            BasicText(stringResource(R.string.market_quantity), style = textStyle.copy(color = colors.text))
+            BasicText(stringResource(R.string.linechart_market_price), style = textStyle.copy(color = colors.text))
+            BasicText(stringResource(R.string.linechart_market_quantity), style = textStyle.copy(color = colors.text))
         }
         rows.forEachIndexed { index, level ->
             val fraction = fractions[index]

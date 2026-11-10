@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="market_depth_description">시장 깊이, 최고 구매가 %1$s, 최저 판매가 %2$s, 호가 차이 %3$s</string>
-    <string name="market_depth_description_one_side">시장 깊이, 최우선 가격 %1$s</string>
-    <string name="market_depth_cursor">가격 %1$s, 누적 %2$d</string>
-    <string name="market_depth_cursor_gap">가격 %1$s</string>
-    <string name="market_price">가격</string>
-    <string name="market_quantity">수량</string>
-    <string name="market_ladder_select">가격 선택</string>
-    <string name="market_size">사이즈</string>
-    <string name="market_trade_price">거래가</string>
-    <string name="market_trade_date">거래일</string>
-    <string name="market_buy">구매</string>
-    <string name="market_sell">판매</string>
-    <string name="market_instant_buy_price">즉시 구매가</string>
-    <string name="market_instant_sell_price">즉시 판매가</string>
+    <string name="linechart_market_depth_description">시장 깊이, 최고 구매가 %1$s, 최저 판매가 %2$s, 호가 차이 %3$s</string>
+    <string name="linechart_market_depth_description_one_side">시장 깊이, 최우선 가격 %1$s</string>
+    <string name="linechart_market_depth_cursor">가격 %1$s, 누적 %2$d</string>
+    <string name="linechart_market_depth_cursor_gap">가격 %1$s</string>
+    <string name="linechart_market_price">가격</string>
+    <string name="linechart_market_quantity">수량</string>
+    <string name="linechart_market_ladder_select">가격 선택</string>
+    <string name="linechart_market_size">사이즈</string>
+    <string name="linechart_market_trade_price">거래가</string>
+    <string name="linechart_market_trade_date">거래일</string>
+    <string name="linechart_market_buy">구매</string>
+    <string name="linechart_market_sell">판매</string>
+    <string name="linechart_market_instant_buy_price">즉시 구매가</string>
+    <string name="linechart_market_instant_sell_price">즉시 판매가</string>
 </resources>

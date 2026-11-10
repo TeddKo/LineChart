@@ -88,8 +88,8 @@ public fun DepthChart(
     }
     val cursorText = cursorPrice?.let {
         depth.cumulativeAt(it.toDouble())?.let { cum ->
-            stringResource(R.string.market_depth_cursor, priceFormatter(it), cum)
-        } ?: stringResource(R.string.market_depth_cursor_gap, priceFormatter(it))
+            stringResource(R.string.linechart_market_depth_cursor, priceFormatter(it), cum)
+        } ?: stringResource(R.string.linechart_market_depth_cursor_gap, priceFormatter(it))
     }
     Canvas(
         box
@@ -120,9 +120,9 @@ private fun depthDescription(depth: Depth, priceFormatter: (Long) -> String): St
     val ask = depth.askPrices.firstOrNull()
     val spread = depth.spread
     return if (bid != null && ask != null && spread != null) {
-        stringResource(R.string.market_depth_description, priceFormatter(bid), priceFormatter(ask), priceFormatter(spread))
+        stringResource(R.string.linechart_market_depth_description, priceFormatter(bid), priceFormatter(ask), priceFormatter(spread))
     } else {
-        stringResource(R.string.market_depth_description_one_side, priceFormatter(checkNotNull(bid ?: ask)))
+        stringResource(R.string.linechart_market_depth_description_one_side, priceFormatter(checkNotNull(bid ?: ask)))
     }
 }
 

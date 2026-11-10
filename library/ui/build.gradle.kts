@@ -8,6 +8,7 @@ plugins {
 
 android {
     namespace = "tddy.ko.linechart.ui"
+    resourcePrefix = "linechart_"
 }
 
 kotlin {
