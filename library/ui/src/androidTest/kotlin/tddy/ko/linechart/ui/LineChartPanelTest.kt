@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
@@ -169,5 +170,27 @@ class LineChartPanelTest {
         rule.runOnIdle { state.scroll = 10f }
         data.value = series(102)
         rule.runOnIdle { assertEquals(11f, state.scroll, 0f) }
+    }
+
+    @Test
+    fun volumePane_addsItsHeightBelowTheChartHeight() {
+        show(100)
+        rule.onNodeWithTag("chart").assertHeightIsEqualTo(300.dp + 80.dp + 4.dp)
+    }
+
+    @Test
+    fun crosshairOff_longPressShowsNothing() {
+        rule.setContent {
+            state = rememberLineChartState(series(200))
+            LineChartPanel(Modifier.testTag("chart"), 300.dp, state, settings = ChartSettings(crosshair = false))
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("chart").performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+            moveBy(Offset(10f, 0f))
+        }
+        rule.runOnIdle { assertFalse(state.crosshair.isSpecified) }
+        rule.onNodeWithTag("chart").performTouchInput { up() }
     }
 }
