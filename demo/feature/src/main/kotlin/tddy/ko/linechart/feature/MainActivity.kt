@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,9 +44,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import tddy.ko.linechart.desigh_system.theme.LineChartTheme
-import tddy.ko.linechart.ui.ChartColors
 import tddy.ko.linechart.ui.ChartData
-import tddy.ko.linechart.ui.ChartType
 import tddy.ko.linechart.ui.LineChartPanel
 import tddy.ko.linechart.ui.Timeframe
 import tddy.ko.linechart.ui.TimeframeUnit
@@ -63,6 +60,7 @@ private const val HISTORY_STEP_MILLIS = 30_000L
 private const val DAILY_YEARS = 8
 private const val DAY_MILLIS = 86_400_000L
 private const val BASE_PRICE = 71_000.0
+private const val SPLIT_DAYS_AGO = 400L
 
 private val Counts = listOf(1, 3, 5, 10, 15, 30, 60, 120, 240)
 
@@ -96,6 +94,9 @@ private fun tickHistory(random: Random, end: Long): List<ChartData> {
     }
 }
 
+private fun ChartData.unadjusted(): ChartData =
+    copy(cumulativeProfit = cumulativeProfit * 2, open = open * 2, high = high * 2, low = low * 2, volume = volume / 2)
+
 private fun dailySeries(random: Random, end: Long): List<ChartData> {
     var price = BASE_PRICE
     val days = DAILY_YEARS * 365
@@ -116,28 +117,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val vm = ViewModelProvider(this)[DemoViewModel::class.java]
-        setContent { LineChartTheme { Demo(vm) } }
+        setContent { LineChartTheme(darkTheme = vm.prefs.theme.isDark()) { Screens(vm) } }
     }
 }
 
 @Composable
-private fun <T> Segmented(options: List<Pair<String, T>>, selected: T, onSelect: (T) -> Unit) {
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        options.forEachIndexed { index, (label, value) ->
-            SegmentedButton(
-                selected = value == selected,
-                onClick = { onSelect(value) },
-                shape = SegmentedButtonDefaults.itemShape(index, options.size),
-            ) { Text(label) }
-        }
-    }
+private fun Screens(vm: DemoViewModel) {
+    var settings by rememberSaveable { mutableStateOf(false) }
+    if (settings) SettingsScreen(vm, onBack = { settings = false }) else Demo(vm, onSettings = { settings = true })
 }
 
 @Composable
-private fun Demo(vm: DemoViewModel) {
+private fun Demo(vm: DemoViewModel, onSettings: () -> Unit) {
     val random = remember { Random(7) }
     val now = remember { System.currentTimeMillis() }
-    val daily = remember { dailySeries(random, now) }
+    val adjustedDaily = remember { dailySeries(random, now) }
+    val rawDaily = remember { adjustedDaily.map { if (it.date < now - SPLIT_DAYS_AGO * DAY_MILLIS) it.unadjusted() else it } }
     var ticks by remember { mutableStateOf(tickHistory(random, now)) }
     var unit by rememberSaveable { mutableStateOf(TimeframeUnit.Minute) }
     var counts by rememberSaveable {
@@ -146,12 +141,11 @@ private fun Demo(vm: DemoViewModel) {
     var sheetUnit by remember { mutableStateOf<TimeframeUnit?>(null) }
     var showIndicators by rememberSaveable { mutableStateOf(false) }
     val timeframe = Timeframe(unit, counts[unit] ?: 1)
-    var chartType by remember { mutableStateOf(ChartType.Candle) }
-    var international by remember { mutableStateOf(false) }
     var items by remember { mutableStateOf(emptyList<ChartData>()) }
-    val dark = isSystemInDarkTheme()
+    val prefs = vm.prefs
+    val daily = if (prefs.adjusted) adjustedDaily else rawDaily
 
-    LaunchedEffect(timeframe) {
+    LaunchedEffect(timeframe, daily) {
         if (timeframe.unit.intraday) {
             while (true) {
                 items = withContext(Dispatchers.Default) { ticks.aggregate(timeframe) }
@@ -166,12 +160,8 @@ private fun Demo(vm: DemoViewModel) {
     val state = rememberLineChartState(items)
     val overlays = remember(vm.overlays, vm.maLines) { vm.builtOverlays() }
     val panes = remember(vm.panes) { vm.builtPanes() }
-    val colors = when {
-        international && dark -> ChartColors.InternationalDark
-        international -> ChartColors.International
-        dark -> ChartColors.KoreanDark
-        else -> ChartColors.Korean
-    }
+    val colors = prefs.colors(prefs.theme.isDark())
+    val settings = remember(prefs) { prefs.settings() }
     val last = items.lastOrNull()
     val previous = items.getOrNull(items.size - 2)
     val change = if (last != null && previous != null && previous.cumulativeProfit != 0.0) {
@@ -187,13 +177,12 @@ private fun Demo(vm: DemoViewModel) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("DEMO/KRW", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             TextButton(onClick = { showIndicators = true }) { Text("지표") }
+            TextButton(onClick = onSettings) { Text("설정") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(last?.let { String.format(Locale.ROOT, "%,.0f", it.cumulativeProfit) }.orEmpty(), style = MaterialTheme.typography.headlineMedium)
             Text(formatChange(change), style = MaterialTheme.typography.titleMedium, color = if (change >= 0) colors.up else colors.down)
         }
-        Segmented(listOf("Candle" to ChartType.Candle, "Line" to ChartType.Line, "Area" to ChartType.Area), chartType) { chartType = it }
-        Segmented(listOf("Korean" to false, "International" to true), international) { international = it }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TimeframeUnit.entries.forEach { value ->
                 val count = counts[value]
@@ -209,10 +198,11 @@ private fun Demo(vm: DemoViewModel) {
         }
         LineChartPanel(
             state = state,
-            chartType = chartType,
+            chartType = prefs.chartType,
             colors = colors,
             overlays = overlays,
             panes = panes,
+            settings = settings,
             timeframe = timeframe,
             priceFormatter = { String.format(Locale.ROOT, "%,.0f", it) },
         )
