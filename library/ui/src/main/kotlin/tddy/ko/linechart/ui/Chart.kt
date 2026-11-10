@@ -359,7 +359,7 @@ private fun ChartCanvas(
 }
 
 @Composable
-fun LineChart(
+public fun LineChart(
     modifier: Modifier,
     state: LineChartState,
 ) {
@@ -440,7 +440,7 @@ fun LineChart(
  * @param state LineChartState that contains the chart data and configuration
  */
 @Composable
-fun LineChartPanel(
+public fun LineChartPanel(
     modifier: Modifier = Modifier,
     chartHeight: Dp = 300.dp,
     state: LineChartState

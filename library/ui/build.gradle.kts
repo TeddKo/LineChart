@@ -1,20 +1,46 @@
-import com.vanniktech.maven.publish.SonatypeHost
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
     alias(libs.plugins.tddy.ko.android.library)
     alias(libs.plugins.tddy.ko.compose.library)
-    alias(libs.plugins.tddy.ko.test.library)
     alias(libs.plugins.vanniktech.maven)
 }
 
-android { namespace = "tddy.ko.linechart.ui" }
+android {
+    namespace = "tddy.ko.linechart.ui"
+}
+
+kotlin {
+    coreLibrariesVersion = libs.versions.kotlinStdlib.get()
+    explicitApi()
+    compilerOptions {
+        apiVersion.set(KotlinVersion.KOTLIN_2_2)
+        languageVersion.set(KotlinVersion.KOTLIN_2_2)
+    }
+}
+
+dependencies {
+    api(libs.androidx.compose.ui)
+    api(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
 
 mavenPublishing {
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    publishToMavenCentral()
 
-    signAllPublications()
+    val toCentral = gradle.startParameter.taskNames.any { "MavenCentral" in it }
+    val hasKey = providers.gradleProperty("signingInMemoryKey").isPresent ||
+        providers.gradleProperty("signing.keyId").isPresent
+    if (toCentral || hasKey) {
+        signAllPublications()
+    }
 
-    coordinates("io.github.teddko", "linechart", "1.0.0")
+    coordinates("io.github.teddko", "linechart", libs.versions.linechart.get())
 
     pom {
         name.set("LineChart")

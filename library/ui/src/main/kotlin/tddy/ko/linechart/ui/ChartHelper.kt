@@ -22,40 +22,41 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.abs
 
-val CHART_DATA_POINT_UNSPECIFIED = ChartDataPoint(Long.MIN_VALUE, true)
-val DRAG_SELECTION_NONE = DragSelection(Offset.Zero, CHART_DATA_POINT_UNSPECIFIED)
+public val CHART_DATA_POINT_UNSPECIFIED: ChartDataPoint = ChartDataPoint(Long.MIN_VALUE, true)
+public val DRAG_SELECTION_NONE: DragSelection = DragSelection(Offset.Zero, CHART_DATA_POINT_UNSPECIFIED)
 
 @Stable
-data class ChartData(
-    val cumulativeProfit: Double,
-    val date: Long
+public data class ChartData(
+    public val cumulativeProfit: Double,
+    public val date: Long
 )
 
 @Stable
-data class ChartDataPoint(
-    val value: Long,
-    val isPositive: Boolean
+public data class ChartDataPoint(
+    public val value: Long,
+    public val isPositive: Boolean
 )
 
 @Stable
-data class DragSelection(
-    val position: Offset,
-    val item: ChartDataPoint,
-    val interpolatedValue: Long = 0L,
-    val index: Int = -1
+public data class DragSelection(
+    public val position: Offset,
+    public val item: ChartDataPoint,
+    public val interpolatedValue: Long = 0L,
+    public val index: Int = -1
 )
 
 @Stable
-data class CubicSegment(
-    val start: Offset,
-    val control1: Offset,
-    val control2: Offset,
-    val end: Offset
+public data class CubicSegment(
+    public val start: Offset,
+    public val control1: Offset,
+    public val control2: Offset,
+    public val end: Offset
 ) {
-    fun getPointAt(t: Float): Offset {
+    public fun getPointAt(t: Float): Offset {
         val t1 = 1f - t
         val t2 = t * t
         val t3 = t2 * t
@@ -69,17 +70,17 @@ data class CubicSegment(
     }
 }
 
-interface DragGestureListener {
-    fun onDrag(offset: Offset)
-    fun onDragStart(offset: Offset)
-    fun onDragEnd()
+public interface DragGestureListener {
+    public fun onDrag(offset: Offset)
+    public fun onDragStart(offset: Offset)
+    public fun onDragEnd()
 }
 
-abstract class DragHandler : DragGestureListener {
-    abstract fun selectedBy(offset: Offset): DragSelection
+public abstract class DragHandler : DragGestureListener {
+    public abstract fun selectedBy(offset: Offset): DragSelection
 
     private val _selected = MutableStateFlow(DRAG_SELECTION_NONE)
-    val selected = _selected.asStateFlow()
+    public val selected: StateFlow<DragSelection> = _selected.asStateFlow()
 
     override fun onDrag(offset: Offset) {
         val newSelection = selectedBy(offset)
@@ -98,7 +99,7 @@ abstract class DragHandler : DragGestureListener {
     }
 }
 
-fun Modifier.bindDragGestures(vararg listeners: DragGestureListener) = pointerInput(Unit) {
+public fun Modifier.bindDragGestures(vararg listeners: DragGestureListener): Modifier = pointerInput(Unit) {
     detectTapGestures(
         onPress = { offset ->
             listeners.forEach { it.onDragStart(offset) }
@@ -121,14 +122,14 @@ fun Modifier.bindDragGestures(vararg listeners: DragGestureListener) = pointerIn
     )
 }
 
-class ChartCanvasManager(private val itemCount: Int) {
+public class ChartCanvasManager(private val itemCount: Int) {
     private var canvasSize = Size.Unspecified
     private var offsets = listOf<Offset>()
     private var lineSegments = listOf<CubicSegment>()
 
-    fun getCurrentOffsets(): List<Offset> = offsets
+    public fun getCurrentOffsets(): List<Offset> = offsets
 
-    fun calculateOffsets(
+    public fun calculateOffsets(
         scope: DrawScope,
         items: List<ChartDataPoint>,
         yFractionCalculator: (Long) -> Float
@@ -163,12 +164,12 @@ class ChartCanvasManager(private val itemCount: Int) {
         }
     }
 
-    fun getLineSegments() = lineSegments
-    fun getCanvasSize() = canvasSize
+    public fun getLineSegments(): List<CubicSegment> = lineSegments
+    public fun getCanvasSize(): Size = canvasSize
 }
 
-class ChartValueCalculator(private val items: List<ChartDataPoint>) {
-    val valueRange: Triple<Long, Long, Long> by lazy {
+public class ChartValueCalculator(private val items: List<ChartDataPoint>) {
+    public val valueRange: Triple<Long, Long, Long> by lazy {
         val min = items.minOfOrNull { it.value } ?: 0L
         val max = items.maxOfOrNull { it.value } ?: 0L
         val range = (max - min).coerceAtLeast(1L)
@@ -184,14 +185,14 @@ class ChartValueCalculator(private val items: List<ChartDataPoint>) {
 
     private val yFractionCache = LruCache<Long, Float>(100)
 
-    fun yFractionOf(value: Long): Float = yFractionCache.getOrPut(value) {
+    public fun yFractionOf(value: Long): Float = yFractionCache.getOrPut(value) {
         val (min, max) = valueRange
         val paddedMin = min - (max - min) * 0.05
         val paddedMax = max + (max - min) * 0.05
         1f - ((value - paddedMin) / (paddedMax - paddedMin)).toFloat()
     }
 
-    fun calculateYAxisTicks(yAxisTicksCount: Int): List<Long> {
+    public fun calculateYAxisTicks(yAxisTicksCount: Int): List<Long> {
         val (min, max, range) = valueRange
         val paddedMin = min - (range * 0.05)
         val paddedMax = max + (range * 0.05)
@@ -203,14 +204,14 @@ class ChartValueCalculator(private val items: List<ChartDataPoint>) {
     }
 }
 
-class ChartDragManager(
+public class ChartDragManager(
     private val items: List<ChartDataPoint>,
     private val canvasManager: ChartCanvasManager,
     private val valueCalculator: ChartValueCalculator
 ) {
     private var lastSelectedIndex = -1
 
-    fun findClosestPoint(point: Offset): Triple<Offset, Int, ChartDataPoint> {
+    public fun findClosestPoint(point: Offset): Triple<Offset, Int, ChartDataPoint> {
         val lineSegments = canvasManager.getLineSegments()
 
         if (lineSegments.isEmpty()) {
@@ -318,38 +319,38 @@ class ChartDragManager(
         abs(currentValue - interpolatedValue) > threshold
     }
 
-    fun updateLastSelectedIndex(index: Int) {
+    public fun updateLastSelectedIndex(index: Int) {
         lastSelectedIndex = index
     }
 
-    fun getLastSelectedIndex() = lastSelectedIndex
+    public fun getLastSelectedIndex(): Int = lastSelectedIndex
 }
 
-class LineChartState(
+public class LineChartState(
     private val items: List<ChartDataPoint>,
     private val defaultPositive: Boolean,
-    val labels: List<String>,
-    val strokeWidth: Dp,
-    val yAxisTicksCount: Int,
+    public val labels: List<String>,
+    public val strokeWidth: Dp,
+    public val yAxisTicksCount: Int,
 ) : DragHandler() {
-    val itemCount = items.size
+    public val itemCount: Int = items.size
     private val valueFormatter: (Long) -> String = { value -> "%.1f".format(value / 10000.0) }
-    val formatValue: (Long) -> String = valueFormatter
+    public val formatValue: (Long) -> String = valueFormatter
 
     private val canvasManager = ChartCanvasManager(itemCount)
     private val valueCalculator = ChartValueCalculator(items)
     private val dragManager = ChartDragManager(items, canvasManager, valueCalculator)
 
-    val yAxisTicks by lazy { valueCalculator.calculateYAxisTicks(yAxisTicksCount) }
+    public val yAxisTicks: List<Long> by lazy { valueCalculator.calculateYAxisTicks(yAxisTicksCount) }
 
-    fun stroke(scope: DrawScope) = with(scope) {
+    public fun stroke(scope: DrawScope): Stroke = with(scope) {
         Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
     }
 
-    fun getOffsets(scope: DrawScope): List<Offset> =
+    public fun getOffsets(scope: DrawScope): List<Offset> =
         canvasManager.calculateOffsets(scope, items, valueCalculator::yFractionOf)
 
-    val isPositive: Boolean get() = if (selected.value == DRAG_SELECTION_NONE) defaultPositive else selected.value.item.isPositive
+    public val isPositive: Boolean get() = if (selected.value == DRAG_SELECTION_NONE) defaultPositive else selected.value.item.isPositive
 
     override fun selectedBy(offset: Offset): DragSelection {
         val currentOffsets = canvasManager.getCurrentOffsets()
@@ -386,7 +387,7 @@ class LineChartState(
 }
 
 @Composable
-fun rememberLineChartState(
+public fun rememberLineChartState(
     items: List<ChartData>,
     maxDataPoints: Int = Int.MAX_VALUE,
     yAxisTicksCount: Int = 5,
@@ -424,7 +425,7 @@ fun rememberLineChartState(
 }
 
 @Composable
-fun infiniteTransitionValue(
+public fun infiniteTransitionValue(
     initialValue: Float = 0f,
     targetValue: Float,
     durationMillis: Int,
