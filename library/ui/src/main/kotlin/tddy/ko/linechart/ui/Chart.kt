@@ -29,6 +29,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -41,6 +43,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.first
 
+private val PANE_HEIGHT = 80.dp
+private val PANE_GAP = 4.dp
 private const val ENTRY_MILLIS = 600
 private const val PULSE_MILLIS = 1500
 private const val TEXT_CACHE_SIZE = 128
@@ -64,7 +68,10 @@ private fun ChartBody(
     state: LineChartState,
     chartType: ChartType,
     colors: ChartColors,
+    chartHeight: Dp?,
     overlays: List<Overlay>,
+    panes: List<PaneIndicator>,
+    paneHeight: Dp,
     timeframe: Timeframe?,
     priceFormatter: (Double) -> String,
     timeFormatter: ((Long) -> String)?,
@@ -79,8 +86,8 @@ private fun ChartBody(
         stringResource(R.string.linechart_volume),
         timeframe?.let { stringResource(it.unit.labelRes()) }.orEmpty(),
     )
-    val spec = remember(chartType, colors, overlays, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels) {
-        ChartSpec(chartType, colors, overlays, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels)
+    val spec = remember(chartType, colors, overlays, panes, paneHeight, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels) {
+        ChartSpec(chartType, colors, overlays, panes, paneHeight, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels)
     }
     val pulse = if (chartType == ChartType.Candle) {
         null
@@ -96,7 +103,12 @@ private fun ChartBody(
         snapshotFlow { state.itemCount }.first { it > 0 }
         if (state.entry.value < 1f) state.entry.animateTo(1f, tween(ENTRY_MILLIS))
     }
-    Box(modifier.chartGestures(state)) {
+    val hasVolume by remember(state) { derivedStateOf { state.series.hasVolume } }
+    val shown = panes.filter { !it.needsVolume || hasVolume }
+    val sized = if (chartHeight == null) modifier else {
+        modifier.fillMaxWidth().height(chartHeight + paneHeight * shown.sumOf { it.weight.toDouble() }.toFloat() + PANE_GAP * shown.size)
+    }
+    Box(sized.chartGestures(state)) {
         Spacer(Modifier.fillMaxSize().graphicsLayer().drawBehind { drawMain(state, spec) })
         Spacer(Modifier.fillMaxSize().drawBehind { drawOverlay(state, spec, pulse?.value) })
     }
@@ -110,7 +122,7 @@ public fun LineChart(
     modifier: Modifier,
     state: LineChartState,
 ) {
-    ChartBody(modifier, state, ChartType.Candle, defaultColors(), DEFAULT_OVERLAYS, null, ::formatPrice, null, ChartTextStyle)
+    ChartBody(modifier, state, ChartType.Candle, defaultColors(), null, DEFAULT_OVERLAYS, DEFAULT_PANES, PANE_HEIGHT, null, ::formatPrice, null, ChartTextStyle)
 }
 
 /**
@@ -120,7 +132,7 @@ public fun LineChart(
  * [timeframe] only labels the time axis and the moving average legend, use [aggregate] to build the candles.
  *
  * @param modifier layout modifier
- * @param chartHeight chart height
+ * @param chartHeight height of the main chart area with header and time axis, the panes adding their height below it
  * @param state chart state holding the series and the viewport
  * @param chartType series style
  * @param colors palette
@@ -143,15 +155,15 @@ public fun LineChartPanel(
     overlays: List<Overlay> = DEFAULT_OVERLAYS,
     panes: List<PaneIndicator> = DEFAULT_PANES,
     settings: ChartSettings = DEFAULT_SETTINGS,
-    paneHeight: Dp = 80.dp,
+    paneHeight: Dp = PANE_HEIGHT,
     timeframe: Timeframe? = null,
     priceFormatter: (Double) -> String = ::formatPrice,
     timeFormatter: ((Long) -> String)? = null,
     textStyle: TextStyle = ChartTextStyle,
 ) {
     ChartBody(
-        modifier.fillMaxWidth().height(chartHeight),
-        state, chartType, colors, overlays, timeframe, priceFormatter, timeFormatter, textStyle,
+        modifier,
+        state, chartType, colors, chartHeight, overlays, panes, paneHeight, timeframe, priceFormatter, timeFormatter, textStyle,
     )
 }
 

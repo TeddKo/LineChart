@@ -17,6 +17,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -38,6 +39,8 @@ internal class ChartSpec(
     val type: ChartType,
     val colors: ChartColors,
     val overlays: List<Overlay>,
+    val panes: List<PaneIndicator>,
+    val paneHeight: Dp,
     val timeframe: Timeframe?,
     val priceFormatter: (Double) -> String,
     val timeFormatter: ((Long) -> String)?,
@@ -150,7 +153,8 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     val labelW = (niceTicks(guessRange.min, guessRange.max, state.yAxisTicksCount) + items.last().cumulativeProfit)
         .maxOf { spec.measurer.measure(spec.priceFormatter(it), style).size.width }
     state.axisW = axisWidth(labelW.toFloat(), d)
-    val layout = paneLayout(size.width, size.height, headerH, timeH, state.axisW, 4f * d, series.hasVolume)
+    val weights = spec.panes.filter { !it.needsVolume || series.hasVolume }.map { it.weight }
+    val layout = paneLayout(size.width, size.height, headerH, timeH, state.axisW, 4f * d, spec.paneHeight.toPx(), weights, false)
     val main = layout.main
     state.plot = main
     val view = state.view(main.width)
@@ -180,7 +184,7 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     }
 
     clipRect(0f, 0f, main.width * state.entry.value, size.height) {
-        layout.volume?.let { volume ->
+        layout.panes.firstOrNull()?.takeIf { spec.panes.any { it is Volume } }?.let { volume ->
             clipRect(volume.left, volume.top, volume.right, volume.bottom) { drawVolume(state, spec, view, volume) }
         }
         clipRect(main.left, main.top, main.right, main.bottom) {
