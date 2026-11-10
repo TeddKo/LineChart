@@ -20,6 +20,11 @@ gradlePlugin {
             implementationClass = "AndroidLibraryPlugin"
         }
 
+        register("KotlinLibrary") {
+            id = "tddy.ko.linechart.kotlin.library"
+            implementationClass = "KotlinLibraryPlugin"
+        }
+
         register("ComposeApplication") {
             id = "tddy.ko.linechart.compose.application"
             implementationClass = "ComposeApplicationPlugin"
