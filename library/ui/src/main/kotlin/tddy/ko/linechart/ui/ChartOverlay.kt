@@ -112,7 +112,7 @@ private fun header(spec: ChartSpec, series: Series, i: Int): AnnotatedString {
 private fun legend(spec: ChartSpec, series: Series, i: Int): AnnotatedString = buildAnnotatedString {
     spec.maPeriods.forEachIndexed { index, period ->
         val value = sma(series.prefix, i, period)
-        withStyle(SpanStyle(color = spec.colors.maColor(index))) {
+        withStyle(SpanStyle(color = spec.maColor(index))) {
             append("${maLegend(period, spec.labels.unit)} ${if (value.isNaN()) "-" else spec.priceFormatter(value)}  ")
         }
     }

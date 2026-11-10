@@ -3,6 +3,7 @@ package tddy.ko.linechart.ui
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
+import kotlin.math.abs
 
 private val PriceFormat = ThreadLocal.withInitial {
     DecimalFormat("#,##0.##", DecimalFormatSymbols(Locale.ROOT))
@@ -20,6 +21,24 @@ internal fun formatPrice(value: Double): String {
     val text = checkNotNull(PriceFormat.get()).format(value)
     return if (text == "-0") "0" else text
 }
+
+/**
+ * Value text with a K, M or B suffix and two decimals from 1,000 up, plain [formatPrice] below.
+ */
+internal fun formatCompact(value: Double): String {
+    val magnitude = abs(value)
+    return when {
+        magnitude >= 1e9 -> String.format(Locale.ROOT, "%.2fB", value / 1e9)
+        magnitude >= 1e6 -> String.format(Locale.ROOT, "%.2fM", value / 1e6)
+        magnitude >= 1e3 -> String.format(Locale.ROOT, "%.2fK", value / 1e3)
+        else -> formatPrice(value)
+    }
+}
+
+/**
+ * Oscillator value text with two decimals, independent of the default locale.
+ */
+internal fun formatOscillator(value: Double): String = String.format(Locale.ROOT, "%.2f", value)
 
 private fun unitOf(timeframe: Timeframe?, stepMs: Long): TimeframeUnit = when {
     timeframe != null -> timeframe.unit

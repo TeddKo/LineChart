@@ -64,7 +64,7 @@ private fun ChartBody(
     state: LineChartState,
     chartType: ChartType,
     colors: ChartColors,
-    maPeriods: List<Int>,
+    overlays: List<Overlay>,
     timeframe: Timeframe?,
     priceFormatter: (Double) -> String,
     timeFormatter: ((Long) -> String)?,
@@ -79,8 +79,8 @@ private fun ChartBody(
         stringResource(R.string.linechart_volume),
         timeframe?.let { stringResource(it.unit.labelRes()) }.orEmpty(),
     )
-    val spec = remember(chartType, colors, maPeriods, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels) {
-        ChartSpec(chartType, colors, maPeriods, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels)
+    val spec = remember(chartType, colors, overlays, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels) {
+        ChartSpec(chartType, colors, overlays, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels)
     }
     val pulse = if (chartType == ChartType.Candle) {
         null
@@ -103,14 +103,14 @@ private fun ChartBody(
 }
 
 /**
- * Chart with the default Candle type, Korean palette and moving averages, filling the size given by [modifier].
+ * Chart with the default Candle type, Korean palette, moving averages and volume pane, filling the size given by [modifier].
  */
 @Composable
 public fun LineChart(
     modifier: Modifier,
     state: LineChartState,
 ) {
-    ChartBody(modifier, state, ChartType.Candle, defaultColors(), DEFAULT_MA_PERIODS, null, ::formatPrice, null, ChartTextStyle)
+    ChartBody(modifier, state, ChartType.Candle, defaultColors(), DEFAULT_OVERLAYS, null, ::formatPrice, null, ChartTextStyle)
 }
 
 /**
@@ -124,7 +124,10 @@ public fun LineChart(
  * @param state chart state holding the series and the viewport
  * @param chartType series style
  * @param colors palette
- * @param maPeriods moving average periods counted in candles of the current timeframe
+ * @param overlays indicators drawn on the main pane
+ * @param panes indicators drawn in panes below the main pane
+ * @param settings display options
+ * @param paneHeight height of a pane of weight 1, each pane adding its height below [chartHeight]
  * @param timeframe timeframe of the items, null to infer the label pattern from the data step
  * @param priceFormatter price text of axis labels, tags and header
  * @param timeFormatter time text overriding the timeframe pattern
@@ -137,7 +140,10 @@ public fun LineChartPanel(
     state: LineChartState,
     chartType: ChartType = ChartType.Candle,
     colors: ChartColors = defaultColors(),
-    maPeriods: List<Int> = DEFAULT_MA_PERIODS,
+    overlays: List<Overlay> = DEFAULT_OVERLAYS,
+    panes: List<PaneIndicator> = DEFAULT_PANES,
+    settings: ChartSettings = DEFAULT_SETTINGS,
+    paneHeight: Dp = 80.dp,
     timeframe: Timeframe? = null,
     priceFormatter: (Double) -> String = ::formatPrice,
     timeFormatter: ((Long) -> String)? = null,
@@ -145,7 +151,7 @@ public fun LineChartPanel(
 ) {
     ChartBody(
         modifier.fillMaxWidth().height(chartHeight),
-        state, chartType, colors, maPeriods, timeframe, priceFormatter, timeFormatter, textStyle,
+        state, chartType, colors, overlays, timeframe, priceFormatter, timeFormatter, textStyle,
     )
 }
 
@@ -162,4 +168,6 @@ public fun LineChartPanel(
     LineChartPanel(modifier, chartHeight, state, ChartType.Candle)
 }
 
-private val DEFAULT_MA_PERIODS = listOf(5, 20, 60, 120)
+private val DEFAULT_OVERLAYS = listOf<Overlay>(MovingAverage())
+private val DEFAULT_PANES = listOf<PaneIndicator>(Volume())
+private val DEFAULT_SETTINGS = ChartSettings()

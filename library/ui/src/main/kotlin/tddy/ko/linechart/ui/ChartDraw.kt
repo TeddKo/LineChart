@@ -37,7 +37,7 @@ internal class Frame(val layout: PaneLayout, val range: YRange, val scroll: Floa
 internal class ChartSpec(
     val type: ChartType,
     val colors: ChartColors,
-    val maPeriods: List<Int>,
+    val overlays: List<Overlay>,
     val timeframe: Timeframe?,
     val priceFormatter: (Double) -> String,
     val timeFormatter: ((Long) -> String)?,
@@ -46,6 +46,8 @@ internal class ChartSpec(
     val labels: ChartLabels,
 ) {
     val path: Path = Path()
+    private val movingAverage = overlays.filterIsInstance<MovingAverage>().firstOrNull()
+    val maPeriods: List<Int> = movingAverage?.periods.orEmpty()
     var cachedSeries: Series? = null
     var cachedIndex: Int = -1
     var header: AnnotatedString = AnnotatedString("")
@@ -53,6 +55,10 @@ internal class ChartSpec(
     private var dashDensity = 0f
     private var dashEffect: PathEffect? = null
     private val formats = HashMap<String, SimpleDateFormat>()
+
+    fun lineColor(color: Color): Color = if (color == Color.Unspecified) colors.text else color
+
+    fun maColor(index: Int): Color = lineColor(movingAverage?.colors?.getOrNull(index) ?: Color.Unspecified)
 
     fun dash(density: Float): PathEffect {
         if (dashEffect == null || dashDensity != density) {
@@ -238,7 +244,7 @@ private fun DrawScope.drawAverages(state: LineChartState, spec: ChartSpec, view:
             if (started) path.lineTo(x, y) else path.moveTo(x, y)
             started = true
         }
-        if (started) drawPath(path, spec.colors.maColor(index), style = Stroke(density, join = StrokeJoin.Round))
+        if (started) drawPath(path, spec.maColor(index), style = Stroke(density, join = StrokeJoin.Round))
     }
 }
 

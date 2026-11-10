@@ -12,6 +12,10 @@ internal class Series(val items: List<ChartData>) {
     val timeAxis: Boolean
     val stepMs: Long
     val hasVolume: Boolean = items.any { it.volume > 0.0 }
+    val close: DoubleArray by lazy { DoubleArray(items.size) { items[it].cumulativeProfit } }
+    val high: DoubleArray by lazy { DoubleArray(items.size) { items[it].high } }
+    val low: DoubleArray by lazy { DoubleArray(items.size) { items[it].low } }
+    val volume: DoubleArray by lazy { DoubleArray(items.size) { items[it].volume } }
     val labels: List<String> by lazy { List(items.size) { (it + 1).toString() } }
 
     init {

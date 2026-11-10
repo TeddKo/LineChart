@@ -49,14 +49,6 @@ class ChartColorsTest {
     }
 
     @Test
-    fun maColor_usesPaletteThenTextFallback() {
-        val colors = ChartColors.Korean
-        assertEquals(4, colors.ma.size)
-        assertEquals(colors.ma[2], colors.maColor(2))
-        assertEquals(colors.text, colors.maColor(4))
-    }
-
-    @Test
     fun presets_areSingletons() {
         assertSame(ChartColors.Korean, ChartColors.Korean)
     }

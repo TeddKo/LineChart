@@ -76,4 +76,20 @@ class FormatTest {
         assertEquals(1, labelStride(0f, 30f))
         assertEquals(1, labelStride(Float.NaN, 30f))
     }
+
+    @Test
+    fun formatCompact_usesKmbSuffixesWithTwoDecimals() {
+        assertEquals("999", formatCompact(999.0))
+        assertEquals("1.50K", formatCompact(1500.0))
+        assertEquals("2.35M", formatCompact(2_345_000.0))
+        assertEquals("1.20B", formatCompact(1_200_000_000.0))
+        assertEquals("-1.50K", formatCompact(-1500.0))
+        assertEquals("0", formatCompact(0.0))
+    }
+
+    @Test
+    fun formatOscillator_isTwoDecimalsIgnoringLocale() {
+        assertEquals("70.46", formatOscillator(70.4637))
+        assertEquals("-0.50", formatOscillator(-0.5))
+    }
 }

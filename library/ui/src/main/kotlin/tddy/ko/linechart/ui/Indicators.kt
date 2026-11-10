@@ -1,0 +1,139 @@
+package tddy.ko.linechart.ui
+
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.Dp
+import kotlin.math.abs
+import kotlin.math.max
+
+/**
+ * Drawable result of an indicator, indexed by item with an optional [offset] in slots.
+ */
+internal sealed class Mark
+
+/**
+ * Polyline of [values], broken at NaN and drawn as steps when [step]; an unspecified [color] resolves to the text color.
+ */
+internal class LineMark(
+    val label: String,
+    val values: DoubleArray,
+    val color: Color,
+    val width: Dp,
+    val offset: Int = 0,
+    val step: Boolean = false,
+) : Mark()
+
+internal enum class Tone { Sign, Direction }
+
+/**
+ * Bars of [values] from zero, colored by the sign of the value or by the candle direction.
+ */
+internal class BarMark(val values: DoubleArray, val tone: Tone) : Mark()
+
+/**
+ * Area between [a] and [b], or between [a] and zero when [b] is null, in [color] or in up and down colors when it is null.
+ */
+internal class FillMark(val a: DoubleArray, val b: DoubleArray?, val color: Color?, val offset: Int = 0) : Mark()
+
+/**
+ * Dots of [values], above the candle (down color) where [above] is set and below it (up color) otherwise.
+ */
+internal class DotMark(val values: DoubleArray, val above: BooleanArray, val offset: Int = 0) : Mark()
+
+internal sealed interface PaneScale {
+    data object Auto : PaneScale
+    data object FromZero : PaneScale
+    class Fixed(val min: Double, val max: Double) : PaneScale
+    class Around(val center: Double) : PaneScale
+}
+
+/**
+ * Moving average family of the [MovingAverage] indicator.
+ */
+public enum class MaType { Simple, Exponential, Weighted }
+
+/**
+ * Computation and drawing recipe of a chart indicator, equal to another of the same class with the same parameters.
+ */
+public abstract class Indicator internal constructor() {
+    internal abstract val params: List<Any>
+    internal open val needsVolume: Boolean get() = false
+    internal abstract fun marks(series: Series, settings: ChartSettings): List<Mark>
+    internal abstract fun legend(spec: ChartSpec, series: Series, marks: List<Mark>, i: Int): AnnotatedString
+
+    final override fun equals(other: Any?): Boolean =
+        other is Indicator && other.javaClass == javaClass && other.params == params
+
+    final override fun hashCode(): Int = 31 * javaClass.hashCode() + params.hashCode()
+}
+
+/**
+ * Indicator drawn on the main price pane.
+ */
+public abstract class Overlay internal constructor() : Indicator() {
+    internal open val inScale: Boolean get() = true
+    internal open val rightPad: Int get() = 0
+}
+
+/**
+ * Indicator drawn in its own pane below the main pane, [weight] times the panel pane height tall.
+ */
+public abstract class PaneIndicator internal constructor(public val weight: Float) : Indicator() {
+    internal abstract val scale: PaneScale
+    internal open val levels: DoubleArray get() = NO_LEVELS
+    internal open val compact: Boolean get() = false
+}
+
+private val NO_LEVELS = DoubleArray(0)
+
+internal fun Mark.eachValue(slot: Int, action: (Double) -> Unit) {
+    fun DoubleArray?.at(offset: Int) {
+        val v = this?.getOrNull(slot - offset) ?: return
+        if (!v.isNaN()) action(v)
+    }
+    when (this) {
+        is LineMark -> values.at(offset)
+        is BarMark -> values.at(0)
+        is FillMark -> {
+            a.at(offset)
+            b.at(offset)
+        }
+        is DotMark -> values.at(offset)
+    }
+}
+
+/**
+ * Value range of a pane over the slots in [visible], padded 5%, from zero, fixed or symmetric around a center according to [scale], including [levels] unless fixed.
+ */
+internal fun paneYRange(marks: List<Mark>, visible: IntRange, scale: PaneScale, levels: DoubleArray): YRange {
+    if (scale is PaneScale.Fixed) return YRange(scale.min, scale.max)
+    var min = Double.POSITIVE_INFINITY
+    var max = Double.NEGATIVE_INFINITY
+    for (mark in marks) {
+        for (i in visible) {
+            mark.eachValue(i) {
+                if (it < min) min = it
+                if (it > max) max = it
+            }
+        }
+    }
+    for (level in levels) {
+        if (level < min) min = level
+        if (level > max) max = level
+    }
+    if (scale is PaneScale.FromZero) {
+        if (max.isInfinite()) return YRange(0.0, 1.0)
+        return YRange(0.0, if (max > 0.0) max else 1.0)
+    }
+    if (min > max) return YRange(0.0, 1.0)
+    if (scale is PaneScale.Around) {
+        val reach = max(abs(max - scale.center), abs(min - scale.center)).let { if (it > 0.0) it else 1.0 }
+        return YRange(scale.center - reach * 1.05, scale.center + reach * 1.05)
+    }
+    val span = max - min
+    if (span <= 0.0) {
+        val delta = if (min == 0.0) 1.0 else abs(min) * 0.01
+        return YRange(min - delta, max + delta)
+    }
+    return YRange(min - span * 0.05, max + span * 0.05)
+}

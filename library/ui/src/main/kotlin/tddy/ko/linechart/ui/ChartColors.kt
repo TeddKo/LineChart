@@ -18,7 +18,6 @@ public enum class ChartType { Line, Area, Candle }
  * @property grid color of grid lines
  * @property crosshair color of the crosshair lines and tags
  * @property background color of the chart background
- * @property ma colors of the moving average lines in period order
  */
 @Immutable
 public class ChartColors(
@@ -29,20 +28,12 @@ public class ChartColors(
     public val grid: Color = Color(0x14000000),
     public val crosshair: Color = Color(0xFF333D4B),
     public val background: Color = Color(0xFFFFFFFF),
-    public val ma: List<Color> = listOf(
-        Color(0xFF2EB82E),
-        Color(0xFFFF9800),
-        Color(0xFF9C27B0),
-        Color(0xFF8D6E63),
-    ),
 ) {
     internal fun forDirection(direction: Int): Color = when {
         direction > 0 -> up
         direction < 0 -> down
         else -> flat
     }
-
-    internal fun maColor(index: Int): Color = ma.getOrElse(index) { text }
 
     public companion object {
         public val Korean: ChartColors = ChartColors()
