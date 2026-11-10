@@ -3,9 +3,8 @@ package tddy.ko.linechart.feature.market
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import tddy.ko.linechart.orderbook.FeePolicy
 import tddy.ko.linechart.orderbook.MatchingEngine
 import tddy.ko.linechart.orderbook.MatchingPolicy
@@ -51,6 +50,7 @@ class MarketUiState(
 
 /**
  * Demo market over [MatchingEngine] with an injected clock: seeded history, then a live loop of random orders.
+ * Every engine access runs on the caller's thread, and the seeding yields between steps so the screen stays responsive.
  */
 class MarketSimulator(private val random: Random = Random(11)) {
     private var now = System.currentTimeMillis()
@@ -71,7 +71,7 @@ class MarketSimulator(private val random: Random = Random(11)) {
 
     suspend fun run() {
         if (!ready) {
-            withContext(Dispatchers.Default) { seed() }
+            seed()
             ready = true
             publish()
         }
@@ -94,7 +94,7 @@ class MarketSimulator(private val random: Random = Random(11)) {
     fun limit(side: Side, price: Long, days: Int): OrderResult =
         engine.place(selected, side, OrderType.Limit, 1, price, now + days * DAY_MILLIS, OWNER).also { record(it); publish() }
 
-    private fun seed() {
+    private suspend fun seed() {
         val start = now - HISTORY_DAYS * DAY_MILLIS
         val end = now
         var time = start
@@ -102,6 +102,7 @@ class MarketSimulator(private val random: Random = Random(11)) {
             now = time
             Options.forEach { step(it) }
             time += HISTORY_STEP_MILLIS
+            yield()
         }
         now = end
     }

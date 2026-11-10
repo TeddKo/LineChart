@@ -129,7 +129,7 @@ private fun MovingAverageSection(vm: DemoViewModel) {
             }
         }
     }
-    FilledTonalButton({ vm.maLines = vm.maLines + MaLine(10, MaType.Simple, Swatches[vm.maLines.size % Swatches.size], 1f, true) }) { Text("＋ 선 추가") }
+    FilledTonalButton({ vm.maLines = vm.maLines + MaLine(10, MaType.Simple, (Swatches.firstOrNull { swatch -> vm.maLines.none { it.color == swatch } } ?: Swatches[vm.maLines.size % Swatches.size]), 1f, true) }) { Text("＋ 선 추가") }
 }
 
 @Composable
