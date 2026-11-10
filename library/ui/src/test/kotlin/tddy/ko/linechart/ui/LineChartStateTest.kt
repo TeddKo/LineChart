@@ -228,4 +228,20 @@ class LineChartStateTest {
         state.transform(50f, 1f, 100_000f)
         assertEquals(15f, state.scroll, 0.0001f)
     }
+
+    @Test
+    fun slotCount_clampsAMarginLargerThanHalfThePlot() {
+        val state = selectable(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
+        state.slot = 10f
+        state.pad = 50
+        assertEquals(15, state.slotCount)
+    }
+
+    @Test
+    fun view_withAHugeMarginStillShowsManyCandles() {
+        val state = selectable(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
+        state.slot = 10f
+        state.pad = 50
+        assertTrue(state.view(100f).visible.count() >= 5)
+    }
 }

@@ -133,4 +133,18 @@ class ViewportTest {
     fun maxScroll_countsPadSlots() {
         assertEquals(3f, maxScroll(13, 80f, 8f), 0.0001f)
     }
+
+    @Test
+    fun clampPad_keepsAtLeastHalfThePlotForCandles() {
+        assertEquals(5, clampPad(20, 1000, 100f, 10f))
+        assertEquals(3, clampPad(3, 1000, 100f, 10f))
+        assertEquals(5, clampPad(5, 1000, 100f, 10f))
+        assertEquals(0, clampPad(0, 1000, 100f, 10f))
+        assertEquals(0, clampPad(4, 1000, 10f, 10f))
+    }
+
+    @Test
+    fun clampPad_keepsThePadWhenEverythingFitsAnyway() {
+        assertEquals(4, clampPad(4, 3, 100f, 100f / 7f))
+    }
 }

@@ -3,6 +3,7 @@ package tddy.ko.linechart.ui
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Slot width in px used by the viewport, falling back to [defaultSlot] while [slot] is NaN.
@@ -52,6 +53,16 @@ internal fun visibleRange(n: Int, scroll: Float, plotW: Float, slot: Float, coun
  * Blank slots after the last item, the larger of the user right margin and the extension an indicator needs.
  */
 internal fun totalPad(rightMargin: Int, rightPad: Int): Int = max(rightMargin, rightPad)
+
+/**
+ * [pad] limited to half of the slots of width [slot] that fit [plotW], so that candles keep at least about half the plot, unless all [count] items and the pad fit anyway.
+ */
+internal fun clampPad(pad: Int, count: Int, plotW: Float, slot: Float): Int {
+    val fit = plotW / slot
+    return if (fit >= count + pad - FIT_EPSILON) pad else min(pad, floor(fit / 2f).toInt())
+}
+
+private const val FIT_EPSILON = 0.01f
 
 /**
  * Scroll that keeps the item under focal x [fx] fixed while the slot changes from [old] to [new].

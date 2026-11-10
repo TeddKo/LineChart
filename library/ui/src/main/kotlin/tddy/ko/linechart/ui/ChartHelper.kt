@@ -420,7 +420,7 @@ public class LineChartState internal constructor(
 
     public val itemCount: Int get() = series.items.size
 
-    internal val slotCount: Int get() = itemCount + pad
+    internal val slotCount: Int get() = itemCount + if (plot.width > 0f) clampPad(pad, itemCount, plot.width, slotFor(plot.width, itemCount + pad)) else pad
 
     public val labels: List<String> get() = series.labels
 
@@ -484,9 +484,9 @@ public class LineChartState internal constructor(
 
     internal fun slotPx(): Float = slotFor(plot.width)
 
-    internal fun slotFor(plotWidth: Float): Float {
+    internal fun slotFor(plotWidth: Float, slots: Int = slotCount): Float {
         val maxSlot = MAX_SLOT_DP * density
-        return effectiveSlot(slot, DEFAULT_SLOT_DP * density, minSlot(plotWidth, slotCount, MIN_SLOT_DP * density, maxSlot), maxSlot)
+        return effectiveSlot(slot, DEFAULT_SLOT_DP * density, minSlot(plotWidth, slots, MIN_SLOT_DP * density, maxSlot), maxSlot)
     }
 
     /**
