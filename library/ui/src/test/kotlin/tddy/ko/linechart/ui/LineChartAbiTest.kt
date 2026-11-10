@@ -92,4 +92,89 @@ class LineChartAbiTest {
         assertEquals(void, type.getDeclaredMethod("onDrag-k-4lQ0M", long).returnType)
         assertEquals(void, type.getDeclaredMethod("onDragStart-k-4lQ0M", long).returnType)
     }
+
+    private fun type(name: String) = Class.forName("tddy.ko.linechart.ui.$name")
+
+    @Test
+    fun dragSelection_keepsConstructorCopyAndComponents() {
+        val type = DragSelection::class.java
+        val point = ChartDataPoint::class.java
+        assertNotNull(type.getDeclaredConstructor(long, point, long, int, int, DefaultConstructorMarker::class.java))
+        assertEquals(type, type.getDeclaredMethod("copy-M_7yMNQ", long, point, long, int).returnType)
+        assertEquals(
+            type,
+            type.getDeclaredMethod("copy-M_7yMNQ\$default", type, long, point, long, int, int, Any::class.java).returnType,
+        )
+        assertEquals(long, type.getDeclaredMethod("getPosition-F1C5BW0").returnType)
+        assertEquals(point, type.getDeclaredMethod("getItem").returnType)
+        assertEquals(long, type.getDeclaredMethod("getInterpolatedValue").returnType)
+        assertEquals(int, type.getDeclaredMethod("getIndex").returnType)
+        assertEquals(long, type.getDeclaredMethod("component1-F1C5BW0").returnType)
+        assertEquals(point, type.getDeclaredMethod("component2").returnType)
+        assertEquals(long, type.getDeclaredMethod("component3").returnType)
+        assertEquals(int, type.getDeclaredMethod("component4").returnType)
+    }
+
+    @Test
+    fun chartDataPoint_keepsConstructorCopyAndComponents() {
+        val type = ChartDataPoint::class.java
+        assertNotNull(type.getDeclaredConstructor(long, boolean))
+        assertEquals(long, type.getDeclaredMethod("getValue").returnType)
+        assertEquals(boolean, type.getDeclaredMethod("isPositive").returnType)
+        assertEquals(long, type.getDeclaredMethod("component1").returnType)
+        assertEquals(boolean, type.getDeclaredMethod("component2").returnType)
+        assertEquals(type, type.getDeclaredMethod("copy", long, boolean).returnType)
+        assertEquals(type, type.getDeclaredMethod("copy\$default", type, long, boolean, int, Any::class.java).returnType)
+    }
+
+    @Test
+    fun cubicSegment_keepsPublicMembers() {
+        val type = type("CubicSegment")
+        assertNotNull(type.getDeclaredConstructor(long, long, long, long, DefaultConstructorMarker::class.java))
+        for (name in listOf("getStart-F1C5BW0", "getControl1-F1C5BW0", "getControl2-F1C5BW0", "getEnd-F1C5BW0")) {
+            assertEquals(name, long, type.getDeclaredMethod(name).returnType)
+        }
+        assertEquals(long, type.getDeclaredMethod("getPointAt-tuRUvjQ", float).returnType)
+        assertEquals(type, type.getDeclaredMethod("copy-zwwh4xc", long, long, long, long).returnType)
+    }
+
+    @Test
+    fun chartCanvasManager_keepsPublicMembers() {
+        val type = type("ChartCanvasManager")
+        assertNotNull(type.getDeclaredConstructor(int))
+        assertEquals(List::class.java, type.getDeclaredMethod("getCurrentOffsets").returnType)
+        assertEquals(
+            List::class.java,
+            type.getDeclaredMethod("calculateOffsets", DrawScope::class.java, List::class.java, Function1::class.java).returnType,
+        )
+        assertEquals(List::class.java, type.getDeclaredMethod("getLineSegments").returnType)
+        assertEquals(long, type.getDeclaredMethod("getCanvasSize-NH-jbRc").returnType)
+    }
+
+    @Test
+    fun chartValueCalculator_keepsPublicMembers() {
+        val type = type("ChartValueCalculator")
+        assertNotNull(type.getDeclaredConstructor(List::class.java))
+        assertEquals(Triple::class.java, type.getDeclaredMethod("getValueRange").returnType)
+        assertEquals(float, type.getDeclaredMethod("yFractionOf", long).returnType)
+        assertEquals(List::class.java, type.getDeclaredMethod("calculateYAxisTicks", int).returnType)
+    }
+
+    @Test
+    fun chartDragManager_keepsPublicMembers() {
+        val type = type("ChartDragManager")
+        assertNotNull(type.getDeclaredConstructor(List::class.java, type("ChartCanvasManager"), type("ChartValueCalculator")))
+        assertEquals(Triple::class.java, type.getDeclaredMethod("findClosestPoint-k-4lQ0M", long).returnType)
+        assertEquals(void, type.getDeclaredMethod("updateLastSelectedIndex", int).returnType)
+        assertEquals(int, type.getDeclaredMethod("getLastSelectedIndex").returnType)
+    }
+
+    @Test
+    fun dragGestureListener_keepsAbstractMembers() {
+        val type = DragGestureListener::class.java
+        assertEquals(void, type.getDeclaredMethod("onDrag-k-4lQ0M", long).returnType)
+        assertEquals(void, type.getDeclaredMethod("onDragStart-k-4lQ0M", long).returnType)
+        assertEquals(void, type.getDeclaredMethod("onDragEnd").returnType)
+        assertEquals(void, DragHandler::class.java.getDeclaredMethod("onDragEnd").returnType)
+    }
 }
