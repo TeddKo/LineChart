@@ -17,11 +17,11 @@ import org.junit.Test
  */
 class LineChartAbiTest {
 
-    private val int = Int::class.javaPrimitiveType!!
-    private val long = Long::class.javaPrimitiveType!!
-    private val float = Float::class.javaPrimitiveType!!
-    private val double = Double::class.javaPrimitiveType!!
-    private val boolean = Boolean::class.javaPrimitiveType!!
+    private val int = Int::class.java
+    private val long = Long::class.java
+    private val float = Float::class.java
+    private val double = Double::class.java
+    private val boolean = Boolean::class.java
     private val void = Void.TYPE
 
     private fun method(owner: String, name: String, returns: Class<*>, vararg params: Class<*>) {
