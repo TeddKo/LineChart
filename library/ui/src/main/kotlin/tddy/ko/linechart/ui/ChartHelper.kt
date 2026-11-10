@@ -446,9 +446,25 @@ public class LineChartState internal constructor(
         series = Series(limited)
     }
 
-    internal fun slotPx(): Float {
+    internal fun slotPx(): Float = slotFor(plot.width)
+
+    internal fun slotFor(plotWidth: Float): Float {
         val maxSlot = MAX_SLOT_DP * density
-        return effectiveSlot(slot, DEFAULT_SLOT_DP * density, minSlot(plot.width, itemCount, MIN_SLOT_DP * density, maxSlot), maxSlot)
+        return effectiveSlot(slot, DEFAULT_SLOT_DP * density, minSlot(plotWidth, itemCount, MIN_SLOT_DP * density, maxSlot), maxSlot)
+    }
+
+    /**
+     * Applies a pinch [zoom] around focal x [focalX] and a horizontal pan of [panX] px to the viewport.
+     */
+    internal fun transform(focalX: Float, zoom: Float, panX: Float) {
+        val width = plot.width
+        if (itemCount == 0 || width <= 0f) return
+        val old = slotPx()
+        val maxSlot = MAX_SLOT_DP * density
+        val new = (old * zoom).coerceIn(minSlot(width, itemCount, MIN_SLOT_DP * density, maxSlot), maxSlot)
+        val zoomed = zoomScroll(scroll, width, old, new, focalX - plot.left)
+        slot = new
+        scroll = clampScroll(zoomed + panX / new, itemCount, width, new)
     }
 
     private fun mainYRange(): YRange {
