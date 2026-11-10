@@ -31,4 +31,10 @@ class ChartSettingsTest {
         assertThrows(IllegalArgumentException::class.java) { ChartSettings(limitPercent = 0.0) }
         assertThrows(IllegalArgumentException::class.java) { ChartSettings(fontScale = 0f) }
     }
+
+    @Test
+    fun customBaseLine_rejectsNonFiniteValues() {
+        assertThrows(IllegalArgumentException::class.java) { BaseLine.Custom(Double.NaN) }
+        assertThrows(IllegalArgumentException::class.java) { BaseLine.Custom(Double.POSITIVE_INFINITY) }
+    }
 }

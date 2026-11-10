@@ -486,7 +486,7 @@ public class LineChartState internal constructor(
     }
 
     /**
-     * Moves the separator [boundary] of the last drawn frame by [dy] px, keeping the total height and the minimum heights of the areas.
+     * Move of the separator [boundary] of the last drawn frame by [dy] px, keeping the total height and the minimum heights of the areas.
      */
     internal fun resizeBy(boundary: Int, dy: Float) {
         val layout = frame?.layout ?: return

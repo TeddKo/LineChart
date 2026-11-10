@@ -23,7 +23,7 @@ public class MatchingEngine(
     private val expiries = PriorityQueue<Resting>(compareBy({ it.expiresAt }, { it.id }))
 
     /**
-     * Places an order. A rejected order consumes no id and returns a null [OrderResult.orderId].
+     * Placement of an order. A rejected order consumes no id and returns a null [OrderResult.orderId].
      *
      * [OrderType.Limit] needs [price] and rests its remainder, [OrderType.Instant] fills up to the optional
      * [price] bound and cancels the rest. [expiresAt] is absolute epoch milliseconds.
@@ -50,7 +50,7 @@ public class MatchingEngine(
         return match(book, side, type, quantity, price, expiresAt, owner, now)
     }
 
-    /** Removes an open order and returns it, null when unknown. */
+    /** Open order removed by id and returned, null when unknown. */
     public fun cancel(orderId: Long): Order? {
         val resting = byId.remove(orderId) ?: return null
         books[resting.option]?.remove(resting)
@@ -58,10 +58,14 @@ public class MatchingEngine(
     }
 
     /**
-     * Replaces [price] and [expiresAt] of an open order, null keeps the current value.
+     * Replacement of [price] and [expiresAt] of an open order, null keeps the current value.
      *
      * Cancel and replace with the same id and the remaining quantity: the order loses time priority and may
      * match. A rejected modify keeps the original order untouched.
+     *
+     * A modify that would trade against the owner's own resting order cancels the original and returns a non-null
+     * [OrderResult.orderId] with [RejectReason.SelfTrade]. An expired order not yet reclaimed by [expire] returns
+     * [RejectReason.NotFound] here while [order] still returns it.
      */
     public fun modify(orderId: Long, price: Long? = null, expiresAt: Long? = null): OrderResult {
         val now = clock()
@@ -76,7 +80,7 @@ public class MatchingEngine(
     }
 
     /**
-     * Reclaims every order with `expiresAt <= now` and returns them sorted by expiry then id.
+     * Reclamation of every order with `expiresAt <= now`, returned sorted by expiry then id.
      *
      * Matching skips expired orders on its own, but they stay known to [order] and [snapshot] until this runs,
      * so the caller invokes it on a timer.

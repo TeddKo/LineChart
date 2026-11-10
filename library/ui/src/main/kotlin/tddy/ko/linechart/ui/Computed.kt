@@ -32,7 +32,7 @@ internal class Computed(
 }
 
 /**
- * Computes [overlays] and [panes] over [series], reusing the marks of [previous] for equal indicators while the series and the volume moving average setting are unchanged.
+ * Marks of [overlays] and [panes] computed over [series], reusing the marks of [previous] for equal indicators while the series and the volume moving average setting are unchanged.
  *
  * ponytail: every indicator is recomputed in full on each series change, about 2 to 4 ms at 10k candles and 20 lines, move it to Dispatchers.Default with conflation or resume from the tail if profiling shows more than 4 ms.
  */

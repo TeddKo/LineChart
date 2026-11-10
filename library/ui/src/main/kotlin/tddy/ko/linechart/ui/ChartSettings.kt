@@ -21,15 +21,26 @@ public enum class GridLines { None, Horizontal, Vertical, Both }
  * Reference value drawn as a dashed line and used as the origin of [PriceScale.Percent].
  */
 public sealed class BaseLine {
+    /** No base line. */
     public data object None : BaseLine()
+
+    /** Close of the previous session. */
     public data object PreviousClose : BaseLine()
+
+    /** Open of the current session. */
     public data object TodayOpen : BaseLine()
+
+    /** Pivot point of the previous session. */
     public data object Pivot : BaseLine()
 
     /**
      * Fixed [value] as the base line.
      */
     public class Custom(public val value: Double) : BaseLine() {
+        init {
+            require(value.isFinite()) { "value must be finite" }
+        }
+
         override fun equals(other: Any?): Boolean = other is Custom && other.value == value
 
         override fun hashCode(): Int = value.hashCode()

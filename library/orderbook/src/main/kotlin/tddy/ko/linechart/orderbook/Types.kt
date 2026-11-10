@@ -21,7 +21,9 @@ public class Order internal constructor(
     public val createdAt: Long,
     public val expiresAt: Long,
     public val owner: String?,
-)
+) {
+    override fun toString(): String = "Order(id=$id, option=$option, side=$side, price=$price, quantity=$quantity, expiresAt=$expiresAt, owner=$owner)"
+}
 
 /** Executed trade at the maker price. Fees are in KRW. */
 public data class Trade(
@@ -46,15 +48,24 @@ public class BookSnapshot internal constructor(
     public val bids: List<BookLevel>,
     public val asks: List<BookLevel>,
 ) {
+    /** Highest bid price, null without bids. */
     public val bestBid: Long? get() = bids.firstOrNull()?.price
+
+    /** Lowest ask price, null without asks. */
     public val bestAsk: Long? get() = asks.firstOrNull()?.price
+
+    override fun toString(): String = "BookSnapshot(option=$option, bids=$bids, asks=$asks)"
 }
 
-/** Fee of one side of a trade, caps live inside the policy. */
+/**
+ * Fee of one side of a trade, caps live inside the policy. Implementations must not throw.
+ */
 public fun interface FeePolicy {
+    /** Fee in KRW charged to [side] for [quantity] filled at [price]. */
     public fun fee(side: Side, price: Long, quantity: Int): Long
 
     public companion object {
+        /** Policy charging no fee. */
         public val NoFee: FeePolicy = FeePolicy { _, _, _ -> 0L }
     }
 }
@@ -89,5 +100,9 @@ public class OrderResult internal constructor(
     public val canceledQuantity: Int,
     public val reason: RejectReason?,
 ) {
+    /** Quantity executed by [fills]. */
     public val filledQuantity: Int get() = fills.sumOf { it.quantity }
+
+    override fun toString(): String =
+        "OrderResult(orderId=$orderId, fills=$fills, restingQuantity=$restingQuantity, canceledQuantity=$canceledQuantity, reason=$reason)"
 }

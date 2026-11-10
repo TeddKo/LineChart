@@ -45,4 +45,20 @@ class TypesTest {
         assertEquals(5, result.filledQuantity)
         assertEquals(0, OrderResult(null, emptyList(), 0, 0, RejectReason.InvalidQuantity).filledQuantity)
     }
+
+    @Test
+    fun levelQuantitySaturatesInsteadOfOverflowing() {
+        val e = MatchingEngine(clock = { 1L })
+        repeat(3) { e.place("A", Side.Sell, OrderType.Limit, Int.MAX_VALUE / 2 + 1, 100) }
+        assertEquals(Int.MAX_VALUE, e.snapshot("A").asks.single().quantity)
+    }
+
+    @Test
+    fun orderResultAndSnapshotHaveReadableToString() {
+        val e = MatchingEngine(clock = { 1L })
+        val result = e.place("A", Side.Sell, OrderType.Limit, 2, 100)
+        assertEquals(true, "restingQuantity=2" in result.toString())
+        assertEquals(true, "100" in e.snapshot("A").toString())
+        assertEquals(true, "100" in checkNotNull(e.order(checkNotNull(result.orderId))).toString())
+    }
 }

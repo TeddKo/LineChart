@@ -42,6 +42,7 @@ internal class OrderBook(val option: String) {
 
     fun snapshot(depth: Int): BookSnapshot = BookSnapshot(option, aggregate(bids, depth), aggregate(asks, depth))
 
+    /** Levels of [levels] up to [depth], each quantity summed in [Long] and capped at [Int.MAX_VALUE]. */
     private fun aggregate(levels: TreeMap<Long, ArrayDeque<Resting>>, depth: Int): List<BookLevel> =
-        levels.entries.take(depth).map { (price, queue) -> BookLevel(price, queue.sumOf { it.remaining }) }
+        levels.entries.take(depth).map { (price, queue) -> BookLevel(price, queue.sumOf { it.remaining.toLong() }.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()) }
 }
