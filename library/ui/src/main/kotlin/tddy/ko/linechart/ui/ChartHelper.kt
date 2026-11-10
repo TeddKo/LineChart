@@ -479,9 +479,10 @@ public class LineChartState internal constructor(
         wantedOverlays = overlays
         wantedPanes = panes
         wantedSettings = settings
+        val previousPanes = computed.panes
         recompute()
         pad = totalPad(settings.rightMargin, computed.overlays.maxOfOrNull { it.rightPad } ?: 0)
-        if (paneDeltas.size > computed.panes.size) paneDeltas = paneDeltas.take(computed.panes.size)
+        paneDeltas = remapPaneDeltas(previousPanes, paneDeltas, computed.panes)
     }
 
     /**
@@ -629,4 +630,17 @@ public fun infiniteTransitionValue(
         ),
         label = "infiniteTransitionValue"
     ).value
+}
+
+/**
+ * Height [deltas] of the [previous] panes carried to the [next] panes, each taking the delta of the unclaimed previous pane of the same kind, the one at its own position first, and zero when there is none.
+ */
+internal fun remapPaneDeltas(previous: List<PaneIndicator>, deltas: List<Float>, next: List<PaneIndicator>): List<Float> {
+    if (deltas.isEmpty()) return deltas
+    val claimed = BooleanArray(previous.size)
+    return next.mapIndexed { k, pane ->
+        val sameKind = { j: Int -> !claimed[j] && previous[j]::class == pane::class }
+        val j = if (k < previous.size && sameKind(k)) k else previous.indices.firstOrNull(sameKind)
+        if (j == null) 0f else deltas.getOrElse(j) { 0f }.also { claimed[j] = true }
+    }
 }
