@@ -320,9 +320,9 @@ private fun DrawScope.drawPlot(state: LineChartState, spec: ChartSpec, frame: Fr
             if (spec.type == ChartType.Candle) drawCandles(state, spec, view, range, main) else drawSeries(state, spec, view, range, main)
             val context = PaneContext(main, range, view, state.slotCount, series)
             for (marks in computed.overlayMarks) for (mark in marks) drawMark(mark, spec, context)
-            drawReferences(spec, frame, lineH, style)
         }
     }
+    drawReferences(spec, frame, lineH, style)
     if (settings.currentPrice) drawLastPrice(state, spec, frame, lineH, style)
     if (settings.highLowMarkers) drawExtremes(state, spec, view, frame, lineH, style)
 }
