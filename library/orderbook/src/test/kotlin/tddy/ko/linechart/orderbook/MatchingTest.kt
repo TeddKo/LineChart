@@ -230,4 +230,26 @@ class MatchingTest {
         assertEquals(1, checkNotNull(e.order(checkNotNull(second.orderId))).quantity)
         assertEquals(checkNotNull(second.orderId) + 1, e.limit(Side.Buy, 50, 1).orderId)
     }
+
+    @Test
+    fun throwingFeePolicyDuringModifyKeepsTheOriginalOrder() {
+        var calls = 0
+        val e = engine(fee = FeePolicy { _, _, _ -> if (++calls > 2) error("fee") else 0L })
+        e.limit(Side.Sell, 100, 1)
+        e.limit(Side.Sell, 100, 1)
+        val bid = checkNotNull(e.limit(Side.Buy, 90, 2).orderId)
+        val before = e.snapshot("A")
+        var thrown = false
+        try {
+            e.modify(bid, price = 100)
+        } catch (_: IllegalStateException) {
+            thrown = true
+        }
+        assertEquals(true, thrown)
+        assertEquals(2, checkNotNull(e.order(bid)).quantity)
+        assertEquals(90L, checkNotNull(e.order(bid)).price)
+        assertEquals(before.bids, e.snapshot("A").bids)
+        assertEquals(before.asks, e.snapshot("A").asks)
+        assertEquals(bid + 1, e.limit(Side.Buy, 50, 1).orderId)
+    }
 }

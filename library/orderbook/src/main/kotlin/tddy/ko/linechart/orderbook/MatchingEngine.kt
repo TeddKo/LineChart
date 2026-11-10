@@ -9,8 +9,9 @@ import java.util.PriorityQueue
  * fee policies own notional math. Time and ids are injected so runs are deterministic, order and trade ids
  * share one sequence. Not thread-safe, the caller serializes access.
  *
- * [FeePolicy] must not throw. Fees of every fill are computed before the book or the id sequence changes,
- * so a throwing policy leaves the book unchanged and consumes no id.
+ * [FeePolicy] is a no-throw requirement for implementations. Fees of every fill are computed before the book
+ * or the id sequence changes, so a throwing policy leaves the book unchanged with id consumption none, on
+ * [place] and on [modify] alike.
  */
 public class MatchingEngine(
     private val policy: MatchingPolicy = MatchingPolicy(),
@@ -64,8 +65,8 @@ public class MatchingEngine(
      * match. A rejected modify keeps the original order untouched.
      *
      * A modify that would trade against the owner's own resting order cancels the original and returns a non-null
-     * [OrderResult.orderId] with [RejectReason.SelfTrade]. An expired order not yet reclaimed by [expire] returns
-     * [RejectReason.NotFound] here while [order] still returns it.
+     * [OrderResult.orderId] with [RejectReason.SelfTrade]. An expired order not yet reclaimed by [expire] gives
+     * [RejectReason.NotFound] here while [order] keeps returning it.
      */
     public fun modify(orderId: Long, price: Long? = null, expiresAt: Long? = null): OrderResult {
         val now = clock()
@@ -75,8 +76,9 @@ public class MatchingEngine(
         val book = books.getValue(resting.option)
         validateLimit(newPrice, newExpiry, now)?.let { return rejected(it) }
         if (!policy.allowCrossing && crosses(book, resting.side, newPrice, now)) return rejected(RejectReason.Crossing)
+        val plan = plan(book, resting.side, resting.remaining, newPrice, resting.owner, now)
         cancel(orderId)
-        return match(book, resting.side, OrderType.Limit, resting.remaining, newPrice, newExpiry, resting.owner, now, orderId)
+        return apply(plan, book, resting.side, OrderType.Limit, newPrice, newExpiry, resting.owner, now, orderId)
     }
 
     /**
@@ -133,12 +135,12 @@ public class MatchingEngine(
         expiresAt: Long,
         owner: String?,
         now: Long,
-        existingId: Long? = null,
-    ): OrderResult {
-        var orderId: Long? = existingId
+    ): OrderResult = apply(plan(book, side, quantity, price, owner, now), book, side, type, price, expiresAt, owner, now, null)
+
+    private fun plan(book: OrderBook, side: Side, quantity: Int, price: Long?, owner: String?, now: Long): Plan {
         var remaining = quantity
         var reason: RejectReason? = null
-        val plan = ArrayList<Planned>()
+        val fills = ArrayList<Planned>()
         val stale = ArrayList<Resting>()
         makers@ for (queue in book.levels(side.opposite()).values) {
             for (maker in queue) {
@@ -153,10 +155,26 @@ public class MatchingEngine(
                     break@makers
                 }
                 val taken = minOf(remaining, maker.remaining)
-                plan += Planned(maker, taken, feePolicy.fee(Side.Buy, maker.price, taken), feePolicy.fee(Side.Sell, maker.price, taken))
+                fills += Planned(maker, taken, feePolicy.fee(Side.Buy, maker.price, taken), feePolicy.fee(Side.Sell, maker.price, taken))
                 remaining -= taken
             }
         }
+        return Plan(fills, stale, remaining, reason)
+    }
+
+    private fun apply(
+        planned: Plan,
+        book: OrderBook,
+        side: Side,
+        type: OrderType,
+        price: Long?,
+        expiresAt: Long,
+        owner: String?,
+        now: Long,
+        existingId: Long?,
+    ): OrderResult {
+        var orderId: Long? = existingId
+        val (plan, stale, remaining, reason) = planned
         stale.forEach(book::remove)
         val fills = ArrayList<Trade>()
         for ((maker, taken, buyerFee, sellerFee) in plan) {
@@ -190,6 +208,8 @@ public class MatchingEngine(
         }
         return OrderResult(orderId, fills, 0, remaining, reason ?: RejectReason.NoLiquidity)
     }
+
+    private data class Plan(val fills: List<Planned>, val stale: List<Resting>, val remaining: Int, val reason: RejectReason?)
 
     private data class Planned(val maker: Resting, val taken: Int, val buyerFee: Long, val sellerFee: Long)
 
