@@ -8,6 +8,9 @@ import java.util.PriorityQueue
  * Better price fills first, FIFO within a price, trades execute at the maker price. Money is KRW as [Long],
  * fee policies own notional math. Time and ids are injected so runs are deterministic, order and trade ids
  * share one sequence. Not thread-safe, the caller serializes access.
+ *
+ * [FeePolicy] must not throw. Fees of every fill are computed before the book or the id sequence changes,
+ * so a throwing policy leaves the book unchanged and consumes no id.
  */
 public class MatchingEngine(
     private val policy: MatchingPolicy = MatchingPolicy(),
@@ -131,36 +134,46 @@ public class MatchingEngine(
         var orderId: Long? = existingId
         var remaining = quantity
         var reason: RejectReason? = null
-        val fills = ArrayList<Trade>()
-        while (remaining > 0) {
-            val maker = liveBest(book, side.opposite(), now) ?: break
-            if (price != null && (if (side == Side.Buy) maker.price > price else maker.price < price)) break
-            if (owner != null && maker.owner == owner) {
-                reason = RejectReason.SelfTrade
-                break
+        val plan = ArrayList<Planned>()
+        val stale = ArrayList<Resting>()
+        makers@ for (queue in book.levels(side.opposite()).values) {
+            for (maker in queue) {
+                if (remaining == 0) break@makers
+                if (maker.expiresAt <= now) {
+                    stale += maker
+                    continue
+                }
+                if (price != null && (if (side == Side.Buy) maker.price > price else maker.price < price)) break@makers
+                if (owner != null && maker.owner == owner) {
+                    reason = RejectReason.SelfTrade
+                    break@makers
+                }
+                val taken = minOf(remaining, maker.remaining)
+                plan += Planned(maker, taken, feePolicy.fee(Side.Buy, maker.price, taken), feePolicy.fee(Side.Sell, maker.price, taken))
+                remaining -= taken
             }
-            val taken = minOf(remaining, maker.remaining)
+        }
+        stale.forEach(book::remove)
+        val fills = ArrayList<Trade>()
+        for ((maker, taken, buyerFee, sellerFee) in plan) {
             val takerId = orderId ?: nextId().also { orderId = it }
-            val buyId = if (side == Side.Buy) takerId else maker.id
-            val sellId = if (side == Side.Buy) maker.id else takerId
             fills += Trade(
                 id = nextId(),
                 option = book.option,
                 price = maker.price,
                 quantity = taken,
-                buyOrderId = buyId,
-                sellOrderId = sellId,
+                buyOrderId = if (side == Side.Buy) takerId else maker.id,
+                sellOrderId = if (side == Side.Buy) maker.id else takerId,
                 takerSide = side,
                 time = now,
-                buyerFee = feePolicy.fee(Side.Buy, maker.price, taken),
-                sellerFee = feePolicy.fee(Side.Sell, maker.price, taken),
+                buyerFee = buyerFee,
+                sellerFee = sellerFee,
             )
             maker.remaining -= taken
             if (maker.remaining == 0) {
                 book.remove(maker)
                 byId.remove(maker.id)
             }
-            remaining -= taken
         }
         if (remaining == 0) return OrderResult(orderId, fills, 0, 0, null)
         if (type == OrderType.Limit && reason == null && price != null) {
@@ -173,6 +186,8 @@ public class MatchingEngine(
         }
         return OrderResult(orderId, fills, 0, remaining, reason ?: RejectReason.NoLiquidity)
     }
+
+    private data class Planned(val maker: Resting, val taken: Int, val buyerFee: Long, val sellerFee: Long)
 
     private fun rejected(reason: RejectReason) = OrderResult(null, emptyList(), 0, 0, reason)
 

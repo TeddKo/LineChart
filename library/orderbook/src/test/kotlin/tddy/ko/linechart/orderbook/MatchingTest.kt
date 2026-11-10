@@ -210,4 +210,24 @@ class MatchingTest {
         e.limit(Side.Sell, 100, 1, owner = "me")
         assertEquals(1, e.limit(Side.Buy, 100, 1).filledQuantity)
     }
+
+    @Test
+    fun throwingFeePolicyLeavesTheBookAndIdsUntouched() {
+        var calls = 0
+        val e = engine(fee = FeePolicy { _, _, _ -> if (++calls > 2) error("fee") else 0L })
+        val first = e.limit(Side.Sell, 100, 1)
+        val second = e.limit(Side.Sell, 100, 1)
+        val before = e.snapshot("A").asks
+        var thrown = false
+        try {
+            e.limit(Side.Buy, 100, 2)
+        } catch (_: IllegalStateException) {
+            thrown = true
+        }
+        assertEquals(true, thrown)
+        assertEquals(before, e.snapshot("A").asks)
+        assertEquals(1, checkNotNull(e.order(checkNotNull(first.orderId))).quantity)
+        assertEquals(1, checkNotNull(e.order(checkNotNull(second.orderId))).quantity)
+        assertEquals(checkNotNull(second.orderId) + 1, e.limit(Side.Buy, 50, 1).orderId)
+    }
 }
