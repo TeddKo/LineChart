@@ -269,10 +269,13 @@ private fun DrawScope.drawPlot(state: LineChartState, spec: ChartSpec, frame: Fr
     }
     computed.panes.forEachIndexed { k, pane ->
         val rect = frame.bodies[k]
+        var lastTop = Float.NaN
         for (tick in paneTicks(pane, frame.paneRanges[k])) {
             val y = yOf(tick, frame.paneRanges[k], rect.top, rect.height)
             if (pane.levels.isEmpty() && gridHorizontal) drawLine(colors.grid, Offset(0f, y), Offset(rect.right, y), d)
             val top = (y - lineH / 2f).coerceIn(rect.top, max(rect.top, rect.bottom - lineH))
+            if (!lastTop.isNaN() && abs(top - lastTop) < lineH) continue
+            lastTop = top
             drawText(spec.measurer, pane.format(tick), Offset(labelX, top), style)
         }
     }
