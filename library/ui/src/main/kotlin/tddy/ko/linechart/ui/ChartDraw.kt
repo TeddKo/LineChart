@@ -1,5 +1,8 @@
 package tddy.ko.linechart.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -44,7 +47,7 @@ internal class Frame(
 
 /**
  * Display configuration and reusable draw resources of one panel, including the wrapped header and overlay legend lines of the last drawn [cachedIndex] of [cachedSeries] and [cachedComputed] at [cachedWidth],
- * and the line count [reservedLines] of each of them, grown to the largest seen, which sizes the header and caps the lines drawn.
+ * and the line count [reservedLines] of each of them, grown to the largest seen, which sizes the header and caps the lines drawn, snapshot state so the main layer lays out again when the overlay grows it.
  */
 internal class ChartSpec(
     val type: ChartType,
@@ -67,7 +70,7 @@ internal class ChartSpec(
     var reservedSeries: Series? = null
     var reservedComputed: Computed? = null
     var reservedWidth: Float = -1f
-    var reservedLines: List<Int> = emptyList()
+    var reservedLines: List<Int> by mutableStateOf(emptyList())
     var paneLegends: List<AnnotatedString> = emptyList()
     private var dashDensity = 0f
     private var dashEffect: PathEffect? = null
