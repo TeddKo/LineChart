@@ -145,6 +145,7 @@ private fun ChartBody(
             label = "pulseValue",
         )
     }
+    remember(state) { state.setIndicators(overlays, panes, settings) }
     SideEffect { state.setIndicators(overlays, panes, settings) }
     LaunchedEffect(state) {
         snapshotFlow { state.itemCount }.first { it > 0 }

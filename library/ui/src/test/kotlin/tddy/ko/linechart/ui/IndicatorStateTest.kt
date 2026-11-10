@@ -98,6 +98,15 @@ class IndicatorStateTest {
     }
 
     @Test
+    fun setIndicators_repeatedWithEqualInputsKeepsTheComputedInstance() {
+        val state = state()
+        state.setIndicators(listOf(MovingAverage()), listOf(Volume()), ChartSettings())
+        val first = state.computed
+        state.setIndicators(listOf(MovingAverage()), listOf(Volume()), ChartSettings())
+        assertSame(first, state.computed)
+    }
+
+    @Test
     fun scaleMarks_skipOverlaysOutsideTheScale() {
         val state = state()
         state.setIndicators(listOf(BollingerBands(), Extending(0, scaled = false)), emptyList(), ChartSettings())
