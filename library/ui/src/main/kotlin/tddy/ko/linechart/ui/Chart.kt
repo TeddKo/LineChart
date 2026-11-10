@@ -16,441 +16,221 @@
 
 package tddy.ko.linechart.ui
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Fill
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.lerp
+import kotlinx.coroutines.flow.first
 
-/**
- * Internal component that renders Y-axis labels
- *
- * @param yAxisTicks List of values to display on Y-axis
- * @param formatValue Function to format the numeric values
- * @param textColor Color for the axis labels
- * @param paddingValues Padding around the labels
- */
-@Composable
-private fun YAxisLabels(
-    yAxisTicks: List<Long>,
-    formatValue: (Long) -> String,
-    textColor: Color,
-    paddingValues: PaddingValues
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxHeight()
-            .padding(paddingValues = paddingValues),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        yAxisTicks.forEach { value ->
-            Text(
-                text = formatValue(value),
-                style = MaterialTheme.typography.labelSmall,
-                color = textColor
-            )
-        }
-    }
+private val PANE_HEIGHT = 80.dp
+private val PANE_GAP = 4.dp
+private const val ENTRY_MILLIS = 600
+private const val PULSE_MILLIS = 1500
+private const val TEXT_CACHE_SIZE = 128
+
+private val NAME_RES: Map<String, Int> = mapOf(
+    "bb" to R.string.linechart_name_bb,
+    "env" to R.string.linechart_name_env,
+    "pc" to R.string.linechart_name_pc,
+    "ichimoku" to R.string.linechart_name_ichimoku,
+    "sar" to R.string.linechart_name_sar,
+    "pivot" to R.string.linechart_name_pivot,
+    "vwap" to R.string.linechart_name_vwap,
+    "vp" to R.string.linechart_name_vp,
+    "macd" to R.string.linechart_name_macd,
+    "macdo" to R.string.linechart_name_macdo,
+    "trix" to R.string.linechart_name_trix,
+    "sonar" to R.string.linechart_name_sonar,
+    "rsi" to R.string.linechart_name_rsi,
+    "stochf" to R.string.linechart_name_stochf,
+    "stochs" to R.string.linechart_name_stochs,
+    "willr" to R.string.linechart_name_willr,
+    "mfi" to R.string.linechart_name_mfi,
+    "psy" to R.string.linechart_name_psy,
+    "cci" to R.string.linechart_name_cci,
+    "dmi" to R.string.linechart_name_dmi,
+    "atr" to R.string.linechart_name_atr,
+    "tv" to R.string.linechart_name_tv,
+    "obv" to R.string.linechart_name_obv,
+    "vr" to R.string.linechart_name_vr,
+    "vo" to R.string.linechart_name_vo,
+    "mom" to R.string.linechart_name_mom,
+    "roc" to R.string.linechart_name_roc,
+    "disp" to R.string.linechart_name_disp,
+    "mid" to R.string.linechart_name_mid,
+    "upper" to R.string.linechart_name_upper,
+    "lower" to R.string.linechart_name_lower,
+    "signal" to R.string.linechart_name_signal,
+    "osc" to R.string.linechart_name_osc,
+    "conv" to R.string.linechart_name_conv,
+    "base" to R.string.linechart_name_base,
+    "lag" to R.string.linechart_name_lag,
+    "span1" to R.string.linechart_name_span1,
+    "span2" to R.string.linechart_name_span2,
+)
+
+private fun TimeframeUnit.labelRes(): Int = when (this) {
+    TimeframeUnit.Tick -> R.string.linechart_unit_tick
+    TimeframeUnit.Second -> R.string.linechart_unit_second
+    TimeframeUnit.Minute -> R.string.linechart_unit_minute
+    TimeframeUnit.Day -> R.string.linechart_unit_day
+    TimeframeUnit.Week -> R.string.linechart_unit_week
+    TimeframeUnit.Month -> R.string.linechart_unit_month
+    TimeframeUnit.Year -> R.string.linechart_unit_year
 }
 
-/**
- * Internal component that renders X-axis labels
- *
- * @param modifier Modifier for customizing the layout
- * @param labels List of labels to display on X-axis
- * @param textColor Color for the axis labels
- * @param paddingValues Padding around the labels
- */
 @Composable
-private fun XAxisLabels(
-    modifier: Modifier = Modifier,
-    labels: List<String>,
-    textColor: Color,
-    paddingValues: PaddingValues
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(paddingValues = paddingValues),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        labels.forEach { label ->
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = textColor
-            )
-        }
-    }
-}
+private fun defaultColors(): ChartColors = if (isSystemInDarkTheme()) ChartColors.KoreanDark else ChartColors.Korean
 
-/**
- * Internal component that shows tooltip when user interacts with the chart
- *
- * @param selectedValue Currently selected data point
- * @param formatValue Function to format the numeric values
- * @param surfaceColor Background color of the tooltip
- * @param textColor Text color of the tooltip
- * @param paddingValues Padding around the tooltip
- */
 @Composable
-private fun ChartTooltip(
-    selectedValue: DragSelection,
-    formatValue: (Long) -> String,
-    surfaceColor: Color,
-    textColor: Color,
-    paddingValues: PaddingValues
-) {
-    val tooltipText = formatValue(selectedValue.item.value)
-    val density = LocalDensity.current
-    val textMeasurer = rememberTextMeasurer()
-    val textStyle = MaterialTheme.typography.labelMedium
-
-    val textSize = remember(tooltipText) {
-        textMeasurer.measure(
-            text = tooltipText,
-            style = textStyle
-        )
-    }
-
-    val tooltipPadding = with(density) { 12.dp.toPx() }
-    val tooltipWidth = textSize.size.width + (tooltipPadding * 2)
-    val tooltipHeight = textSize.size.height + (tooltipPadding * 2)
-
-    Column(
-        modifier = Modifier
-            .padding(paddingValues = paddingValues)
-            .offset {
-                val xOffset = selectedValue.position.x - (tooltipWidth / 2)
-                val yOffset = selectedValue.position.y - tooltipHeight
-                IntOffset(
-                    x = xOffset.toInt(),
-                    y = yOffset.toInt()
-                )
-            },
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = tooltipText,
-            style = MaterialTheme.typography.labelMedium,
-            color = textColor,
-            modifier = Modifier
-                .shadow(
-                    elevation = 8.dp,
-                    shape = RoundedCornerShape(8.dp),
-                    clip = true
-                )
-                .background(
-                    color = surfaceColor,
-                    shape = RoundedCornerShape(8.dp)
-                )
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        )
-
-        Canvas(
-            modifier = Modifier
-                .size(12.dp)
-                .offset(y = (-6).dp)
-        ) {
-            val path = Path().apply {
-                val width = size.width
-                val height = size.height
-
-                moveTo(0f, 0f)
-                lineTo(width, 0f)
-                quadraticTo(
-                    width / 2f + 4.dp.toPx(), height / 2f,
-                    width / 2f, height
-                )
-                quadraticTo(
-                    width / 2f - 4.dp.toPx(), height / 2f,
-                    0f, 0f
-                )
-                close()
-            }
-
-            drawPath(
-                path = path,
-                color = Color.Black.copy(alpha = 0.1f),
-                style = Fill,
-                blendMode = BlendMode.SrcOver
-            )
-
-            drawPath(
-                path = path,
-                color = surfaceColor,
-                style = Fill
-            )
-        }
-    }
-}
-
-/**
- * Core chart drawing component that handles the actual line chart rendering
- *
- * @param modifier Modifier for customizing the layout
- * @param state LineChartState containing chart data and configuration
- * @param yAnim Animation state for Y-axis values
- * @param transitionValue Animation progress for visual effects
- * @param surfaceColor Background color of the chart
- * @param positiveColor Color used for positive values
- * @param negativeColor Color used for negative values
- * @param paddingValues Padding around the chart
- */
-@Composable
-private fun ChartCanvas(
-    modifier: Modifier = Modifier,
+private fun ChartBody(
+    modifier: Modifier,
     state: LineChartState,
-    yAnim: Animatable<Float, *>,
-    transitionValue: Float,
-    surfaceColor: Color,
-    positiveColor: Color,
-    negativeColor: Color,
-    paddingValues: PaddingValues
+    chartType: ChartType,
+    colors: ChartColors,
+    chartHeight: Dp?,
+    overlays: List<Overlay>,
+    panes: List<PaneIndicator>,
+    settings: ChartSettings,
+    paneHeight: Dp,
+    timeframe: Timeframe?,
+    priceFormatter: (Double) -> String,
+    timeFormatter: ((Long) -> String)?,
+    textStyle: TextStyle,
 ) {
-    val chartPath = remember { Path() }
-    val selectedValue by state.selected.collectAsState()
-
-    val animateChartColor by animateColorAsState(
-        targetValue = if (state.isPositive) positiveColor else negativeColor,
-        animationSpec = tween(durationMillis = 300, easing = LinearEasing),
-        label = "animate chart color"
+    val measurer = rememberTextMeasurer(TEXT_CACHE_SIZE)
+    val scaledStyle = if (settings.fontScale == 1f || !textStyle.fontSize.isSpecified) textStyle else textStyle.copy(fontSize = textStyle.fontSize * settings.fontScale)
+    val labels = ChartLabels(
+        stringResource(R.string.linechart_open),
+        stringResource(R.string.linechart_high),
+        stringResource(R.string.linechart_low),
+        stringResource(R.string.linechart_close),
+        stringResource(R.string.linechart_volume),
+        timeframe?.let { stringResource(it.unit.labelRes()) }.orEmpty(),
+        NAME_RES.mapValues { stringResource(it.value) },
     )
-
-    Box {
-        Canvas(
-            modifier = modifier
-                .padding(paddingValues = paddingValues)
-                .bindDragGestures(state)
-        ) {
-            val offsets = state.getOffsets(this)
-            val end = offsets.last()
-            val strokeWidthPx = state.strokeWidth.toPx()
-
-            // 전체 차트 경로 생성
-            chartPath.reset()
-            if (offsets.size >= 2) {
-                chartPath.moveTo(offsets[0].x, lerp(size.height, offsets[0].y, yAnim.value))
-
-                for (i in 1 until offsets.size) {
-                    val prevPoint = offsets[i - 1]
-                    val currentPoint = offsets[i]
-
-                    val controlPoint1X = prevPoint.x + (currentPoint.x - prevPoint.x) * 0.5f
-                    val controlPoint1Y = lerp(size.height, prevPoint.y, yAnim.value)
-                    val controlPoint2X = prevPoint.x + (currentPoint.x - prevPoint.x) * 0.5f
-                    val controlPoint2Y = lerp(size.height, currentPoint.y, yAnim.value)
-
-                    chartPath.cubicTo(
-                        controlPoint1X, controlPoint1Y,
-                        controlPoint2X, controlPoint2Y,
-                        currentPoint.x, lerp(size.height, currentPoint.y, yAnim.value)
-                    )
-                }
-            }
-
-            val stroke = state.stroke(this)
-
-            if (selectedValue != DRAG_SELECTION_NONE) {
-                val selectedX = selectedValue.position.x
-
-                clipRect(
-                    left = -selectedX,
-                    top = 0f,
-                    right = selectedX,
-                    bottom = size.height
-                ) {
-                    drawPath(
-                        path = chartPath,
-                        color = animateChartColor,
-                        style = stroke
-                    )
-                }
-
-                clipRect(
-                    left = selectedX,
-                    right = size.width + strokeWidthPx,
-                    bottom = size.height,
-                    top = 0f
-                ) {
-                    drawPath(
-                        path = chartPath,
-                        color = Color.Gray,
-                        style = stroke
-                    )
-                }
-
-                drawCircle(
-                    color = animateChartColor,
-                    radius = 3.5.dp.toPx() + (15.dp.toPx() * transitionValue),
-                    alpha = .6f - (.6f * transitionValue),
-                    center = selectedValue.position
-                )
-                drawCircle(
-                    color = animateChartColor,
-                    radius = 3.5.dp.toPx() + (.5.dp.toPx() * transitionValue),
-                    center = selectedValue.position
-                )
-            } else {
-                drawPath(
-                    path = chartPath,
-                    color = animateChartColor,
-                    style = stroke
-                )
-
-                drawCircle(
-                    color = animateChartColor,
-                    radius = 3.5.dp.toPx() + (15.dp.toPx() * transitionValue),
-                    alpha = .6f - (.6f * transitionValue),
-                    center = end
-                )
-                drawCircle(
-                    color = animateChartColor,
-                    radius = 3.5.dp.toPx() + (.5.dp.toPx() * transitionValue),
-                    center = end
-                )
-            }
-        }
-        if (selectedValue != DRAG_SELECTION_NONE) {
-            ChartTooltip(
-                selectedValue = selectedValue,
-                formatValue = state.formatValue,
-                surfaceColor = surfaceColor,
-                textColor = animateChartColor,
-                paddingValues = paddingValues
-            )
-        }
+    val spec = remember(chartType, colors, timeframe, priceFormatter, timeFormatter, scaledStyle, measurer, labels, paneHeight) {
+        ChartSpec(chartType, colors, timeframe, priceFormatter, timeFormatter, scaledStyle, measurer, labels, paneHeight)
+    }
+    val pulse = if (chartType == ChartType.Candle) {
+        null
+    } else {
+        rememberInfiniteTransition(label = "pulse").animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(PULSE_MILLIS, easing = LinearEasing)),
+            label = "pulseValue",
+        )
+    }
+    remember(state) { state.setIndicators(overlays, panes, settings) }
+    SideEffect { state.setIndicators(overlays, panes, settings) }
+    LaunchedEffect(state) {
+        snapshotFlow { state.itemCount }.first { it > 0 }
+        if (state.entry.value < 1f) state.entry.animateTo(1f, tween(ENTRY_MILLIS))
+    }
+    val hasVolume by remember(state) { derivedStateOf { state.series.hasVolume } }
+    val shown = panes.filter { !it.needsVolume || hasVolume }
+    val sized = if (chartHeight == null) modifier else {
+        modifier.fillMaxWidth().height(chartHeight + paneHeight * shown.sumOf { it.weight.toDouble() }.toFloat() + PANE_GAP * shown.size)
+    }
+    Box(sized.chartGestures(state, LocalHapticFeedback.current)) {
+        Spacer(Modifier.fillMaxSize().graphicsLayer().drawBehind { drawMain(state, spec) })
+        Spacer(Modifier.fillMaxSize().drawBehind { drawOverlay(state, spec, pulse?.value) })
     }
 }
 
+/**
+ * Chart with the default Candle type, Korean palette, moving averages and volume pane, filling the size given by [modifier].
+ */
 @Composable
-fun LineChart(
+public fun LineChart(
     modifier: Modifier,
     state: LineChartState,
 ) {
-    val transitionValue = infiniteTransitionValue(targetValue = 1f, durationMillis = 1500)
-    val positiveColor = MaterialTheme.colorScheme.inversePrimary
-    val negativeColor = MaterialTheme.colorScheme.error
-    val textColor = MaterialTheme.colorScheme.onSurface
-    val yAnim = remember { Animatable(.1f) }
-    val surfaceColor = MaterialTheme.colorScheme.surface
-
-    LaunchedEffect(state) {
-        yAnim.snapTo(.0f)
-        yAnim.animateTo(1f)
-    }
-
-    Row(modifier = modifier) {
-        YAxisLabels(
-            yAxisTicks = state.yAxisTicks,
-            formatValue = state.formatValue,
-            textColor = textColor,
-            paddingValues = PaddingValues(vertical = 20.dp)
-        )
-
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-        ) {
-            ChartCanvas(
-                modifier = Modifier.fillMaxSize(),
-                state = state,
-                yAnim = yAnim,
-                transitionValue = transitionValue,
-                surfaceColor = surfaceColor,
-                positiveColor = positiveColor,
-                negativeColor = negativeColor,
-                paddingValues = PaddingValues(top = 20.dp, bottom = 20.dp, end = 20.dp)
-            )
-
-            XAxisLabels(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                labels = state.labels,
-                textColor = textColor,
-                paddingValues = PaddingValues(end = 20.dp)
-            )
-        }
-    }
+    ChartBody(modifier, state, ChartType.Candle, defaultColors(), null, DEFAULT_OVERLAYS, DEFAULT_PANES, DEFAULT_SETTINGS, PANE_HEIGHT, null, ::formatPrice, null, ChartTextStyle)
 }
 
 /**
- * LineChart Component for Jetpack Compose
+ * Interactive line, area or candle chart with pan, fling, pinch zoom, long-press crosshair, pane resizing and live updates.
  *
- * This component provides an interactive line chart with features like:
- * - Smooth animations
- * - Touch interaction with tooltips
- * - Customizable colors and styles
- * - Automatic scaling
- * - Y-axis and X-axis labels
- * - Support for positive and negative values
+ * A long press away from the separators shows the crosshair. A long press within 12dp of a separator between two areas instead highlights it with a haptic tick, and dragging then moves it, growing the area above and shrinking the one below by the same amount down to 120dp for the main area and 40dp for a pane. The resized heights live in [state], surviving data updates and indicator parameter changes and being dropped for removed panes, but not saved across recreation.
  *
- * Basic usage example:
- * ```
- * LineChartPanel(
- *     state = rememberLineChartState(
- *         items = yourDataList,
- *         maxDataPoints = 20,  // Optional: limit number of points
- *         yAxisTicksCount = 5   // Optional: number of y-axis labels
- *     )
- * )
- * ```
- */
-
-/**
- * Main container component for the line chart
+ * Feed new data by passing a new list to [rememberLineChartState]; the viewport, zoom and crosshair survive updates.
+ * [timeframe] only labels the time axis and the moving average legend, use [aggregate] to build the candles.
  *
- * @param modifier Modifier for customizing the layout
- * @param chartHeight Height of the chart (default: 300.dp)
- * @param state LineChartState that contains the chart data and configuration
+ * @param modifier layout modifier
+ * @param chartHeight height of the main chart area with header and time axis, the panes adding their height below it
+ * @param state chart state holding the series and the viewport
+ * @param chartType series style
+ * @param colors palette
+ * @param overlays indicators drawn on the main pane
+ * @param panes indicators drawn in panes below the main pane
+ * @param settings display options
+ * @param paneHeight height of a pane of weight 1, each pane adding its height below [chartHeight]
+ * @param timeframe timeframe of the items, null to infer the label pattern from the data step
+ * @param priceFormatter price text of axis labels, tags and header
+ * @param timeFormatter time text overriding the timeframe pattern
+ * @param textStyle style of axis and header text
  */
 @Composable
-fun LineChartPanel(
+public fun LineChartPanel(
     modifier: Modifier = Modifier,
     chartHeight: Dp = 300.dp,
-    state: LineChartState
+    state: LineChartState,
+    chartType: ChartType = ChartType.Candle,
+    colors: ChartColors = defaultColors(),
+    overlays: List<Overlay> = DEFAULT_OVERLAYS,
+    panes: List<PaneIndicator> = DEFAULT_PANES,
+    settings: ChartSettings = DEFAULT_SETTINGS,
+    paneHeight: Dp = PANE_HEIGHT,
+    timeframe: Timeframe? = null,
+    priceFormatter: (Double) -> String = ::formatPrice,
+    timeFormatter: ((Long) -> String)? = null,
+    textStyle: TextStyle = ChartTextStyle,
 ) {
-    if (state.itemCount < 2) return
-
-    LineChart(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(chartHeight),
-        state = state
+    ChartBody(
+        modifier,
+        state, chartType, colors, chartHeight, overlays, panes, settings, paneHeight, timeframe, priceFormatter, timeFormatter, textStyle,
     )
 }
+
+/**
+ * Legacy 1.0.0 entry point kept for binary compatibility.
+ */
+@Deprecated("Binary compatibility", level = DeprecationLevel.HIDDEN)
+@Composable
+public fun LineChartPanel(
+    modifier: Modifier = Modifier,
+    chartHeight: Dp = 300.dp,
+    state: LineChartState,
+) {
+    LineChartPanel(modifier, chartHeight, state, ChartType.Candle)
+}
+
+private val DEFAULT_OVERLAYS = listOf<Overlay>(MovingAverage())
+private val DEFAULT_PANES = listOf<PaneIndicator>(Volume())
+private val DEFAULT_SETTINGS = ChartSettings()

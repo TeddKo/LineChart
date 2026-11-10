@@ -1,0 +1,226 @@
+package tddy.ko.linechart.orderbook
+
+import java.util.PriorityQueue
+
+/**
+ * Price-time priority matching engine over independent books per option.
+ *
+ * Better price fills first, FIFO within a price, trades execute at the maker price. Money is KRW as [Long],
+ * fee policies own notional math. Time and ids are injected so runs are deterministic, order and trade ids
+ * share one sequence. Not thread-safe, the caller serializes access.
+ *
+ * [FeePolicy] is a no-throw requirement for implementations. Fees of every fill are computed before the book
+ * or the id sequence changes, so a throwing policy leaves the book unchanged with id consumption none, on
+ * [place] and on [modify] alike.
+ */
+public class MatchingEngine(
+    private val policy: MatchingPolicy = MatchingPolicy(),
+    private val feePolicy: FeePolicy = FeePolicy.NoFee,
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val nextId: () -> Long = counter(),
+) {
+    private val books = HashMap<String, OrderBook>()
+    private val byId = HashMap<Long, Resting>()
+    private val expiries = PriorityQueue<Resting>(compareBy({ it.expiresAt }, { it.id }))
+
+    /**
+     * Placement of an order. A rejected order consumes no id and returns a null [OrderResult.orderId].
+     *
+     * [OrderType.Limit] needs [price] and rests its remainder, [OrderType.Instant] fills up to the optional
+     * [price] bound and cancels the rest. [expiresAt] is absolute epoch milliseconds.
+     */
+    public fun place(
+        option: String,
+        side: Side,
+        type: OrderType,
+        quantity: Int,
+        price: Long? = null,
+        expiresAt: Long = Long.MAX_VALUE,
+        owner: String? = null,
+    ): OrderResult {
+        val now = clock()
+        if (quantity <= 0) return rejected(RejectReason.InvalidQuantity)
+        if (type == OrderType.Limit) {
+            val invalid = if (price == null) RejectReason.InvalidPrice else validateLimit(price, expiresAt, now)
+            if (invalid != null) return rejected(invalid)
+        }
+        val book = books.getOrPut(option) { OrderBook(option) }
+        if (type == OrderType.Limit && !policy.allowCrossing && price != null && crosses(book, side, price, now)) {
+            return rejected(RejectReason.Crossing)
+        }
+        return match(book, side, type, quantity, price, expiresAt, owner, now)
+    }
+
+    /** Open order removed by id and returned, null when unknown. */
+    public fun cancel(orderId: Long): Order? {
+        val resting = byId.remove(orderId) ?: return null
+        books[resting.option]?.remove(resting)
+        return resting.toOrder()
+    }
+
+    /**
+     * Replacement of [price] and [expiresAt] of an open order, null keeps the current value.
+     *
+     * Cancel and replace with the same id and the remaining quantity: the order loses time priority and may
+     * match. A rejected modify keeps the original order untouched.
+     *
+     * A modify that would trade against the owner's own resting order cancels the original and returns a non-null
+     * [OrderResult.orderId] with [RejectReason.SelfTrade]. An expired order not yet reclaimed by [expire] gives
+     * [RejectReason.NotFound] here while [order] keeps returning it.
+     */
+    public fun modify(orderId: Long, price: Long? = null, expiresAt: Long? = null): OrderResult {
+        val now = clock()
+        val resting = byId[orderId]?.takeIf { it.expiresAt > now } ?: return rejected(RejectReason.NotFound)
+        val newPrice = price ?: resting.price
+        val newExpiry = expiresAt ?: resting.expiresAt
+        val book = books.getValue(resting.option)
+        validateLimit(newPrice, newExpiry, now)?.let { return rejected(it) }
+        if (!policy.allowCrossing && crosses(book, resting.side, newPrice, now)) return rejected(RejectReason.Crossing)
+        val plan = plan(book, resting.side, resting.remaining, newPrice, resting.owner, now)
+        cancel(orderId)
+        return apply(plan, book, resting.side, OrderType.Limit, newPrice, newExpiry, resting.owner, now, orderId)
+    }
+
+    /**
+     * Reclamation of every order with `expiresAt <= now`, returned sorted by expiry then id.
+     *
+     * Matching skips expired orders on its own, but they stay known to [order] and [snapshot] until this runs,
+     * so the caller invokes it on a timer.
+     */
+    public fun expire(now: Long = clock()): List<Order> {
+        val expired = ArrayList<Order>()
+        while (true) {
+            val top = expiries.peek()?.takeIf { it.expiresAt <= now } ?: break
+            expiries.poll()
+            if (byId[top.id] !== top) continue
+            byId.remove(top.id)
+            books[top.option]?.remove(top)
+            expired += top.toOrder()
+        }
+        return expired
+    }
+
+    /** Open order by id, null when unknown or fully filled. */
+    public fun order(orderId: Long): Order? = byId[orderId]?.toOrder()
+
+    /** Aggregated book of [option] limited to [depth] levels per side. */
+    public fun snapshot(option: String, depth: Int = Int.MAX_VALUE): BookSnapshot =
+        books[option]?.snapshot(depth) ?: BookSnapshot(option, emptyList(), emptyList())
+
+    private fun validateLimit(price: Long, expiresAt: Long, now: Long): RejectReason? = when {
+        price < policy.minPrice || price % policy.tickSize != 0L -> RejectReason.InvalidPrice
+        expiresAt <= now -> RejectReason.InvalidExpiry
+        else -> null
+    }
+
+    private fun liveBest(book: OrderBook, side: Side, now: Long): Resting? {
+        while (true) {
+            val best = book.best(side) ?: return null
+            if (best.expiresAt > now) return best
+            book.remove(best)
+        }
+    }
+
+    private fun crosses(book: OrderBook, side: Side, price: Long, now: Long): Boolean {
+        val best = liveBest(book, side.opposite(), now)?.price ?: return false
+        return if (side == Side.Buy) price >= best else price <= best
+    }
+
+    private fun match(
+        book: OrderBook,
+        side: Side,
+        type: OrderType,
+        quantity: Int,
+        price: Long?,
+        expiresAt: Long,
+        owner: String?,
+        now: Long,
+    ): OrderResult = apply(plan(book, side, quantity, price, owner, now), book, side, type, price, expiresAt, owner, now, null)
+
+    private fun plan(book: OrderBook, side: Side, quantity: Int, price: Long?, owner: String?, now: Long): Plan {
+        var remaining = quantity
+        var reason: RejectReason? = null
+        val fills = ArrayList<Planned>()
+        val stale = ArrayList<Resting>()
+        makers@ for (queue in book.levels(side.opposite()).values) {
+            for (maker in queue) {
+                if (remaining == 0) break@makers
+                if (maker.expiresAt <= now) {
+                    stale += maker
+                    continue
+                }
+                if (price != null && (if (side == Side.Buy) maker.price > price else maker.price < price)) break@makers
+                if (owner != null && maker.owner == owner) {
+                    reason = RejectReason.SelfTrade
+                    break@makers
+                }
+                val taken = minOf(remaining, maker.remaining)
+                fills += Planned(maker, taken, feePolicy.fee(Side.Buy, maker.price, taken), feePolicy.fee(Side.Sell, maker.price, taken))
+                remaining -= taken
+            }
+        }
+        return Plan(fills, stale, remaining, reason)
+    }
+
+    private fun apply(
+        planned: Plan,
+        book: OrderBook,
+        side: Side,
+        type: OrderType,
+        price: Long?,
+        expiresAt: Long,
+        owner: String?,
+        now: Long,
+        existingId: Long?,
+    ): OrderResult {
+        var orderId: Long? = existingId
+        val (plan, stale, remaining, reason) = planned
+        stale.forEach(book::remove)
+        val fills = ArrayList<Trade>()
+        for ((maker, taken, buyerFee, sellerFee) in plan) {
+            val takerId = orderId ?: nextId().also { orderId = it }
+            fills += Trade(
+                id = nextId(),
+                option = book.option,
+                price = maker.price,
+                quantity = taken,
+                buyOrderId = if (side == Side.Buy) takerId else maker.id,
+                sellOrderId = if (side == Side.Buy) maker.id else takerId,
+                takerSide = side,
+                time = now,
+                buyerFee = buyerFee,
+                sellerFee = sellerFee,
+            )
+            maker.remaining -= taken
+            if (maker.remaining == 0) {
+                book.remove(maker)
+                byId.remove(maker.id)
+            }
+        }
+        if (remaining == 0) return OrderResult(orderId, fills, 0, 0, null)
+        if (type == OrderType.Limit && reason == null && price != null) {
+            val id = orderId ?: nextId().also { orderId = it }
+            val resting = Resting(id, book.option, side, price, remaining, now, expiresAt, owner)
+            book.add(resting)
+            byId[id] = resting
+            if (expiresAt != Long.MAX_VALUE) expiries += resting
+            return OrderResult(id, fills, remaining, 0, null)
+        }
+        return OrderResult(orderId, fills, 0, remaining, reason ?: RejectReason.NoLiquidity)
+    }
+
+    private data class Plan(val fills: List<Planned>, val stale: List<Resting>, val remaining: Int, val reason: RejectReason?)
+
+    private data class Planned(val maker: Resting, val taken: Int, val buyerFee: Long, val sellerFee: Long)
+
+    private fun rejected(reason: RejectReason) = OrderResult(null, emptyList(), 0, 0, reason)
+
+    private fun Side.opposite() = if (this == Side.Buy) Side.Sell else Side.Buy
+
+    private companion object {
+        fun counter(): () -> Long {
+            var n = 0L
+            return { ++n }
+        }
+    }
+}

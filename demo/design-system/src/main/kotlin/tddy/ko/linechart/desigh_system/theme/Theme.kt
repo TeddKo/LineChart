@@ -20,12 +20,12 @@ fun LineChartTheme(
     WindowCompat
         .getInsetsController(window, view)
         .apply {
-            isAppearanceLightStatusBars = true
-            isAppearanceLightNavigationBars = true
+            isAppearanceLightStatusBars = !darkTheme
+            isAppearanceLightNavigationBars = !darkTheme
         }
 
     MaterialTheme(
-        colorScheme = tddy.ko.linechart.desigh_system.theme.LightColorScheme,
+        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
         typography = tddy.ko.linechart.desigh_system.theme.Typography
     ) {
         Surface(content = content)

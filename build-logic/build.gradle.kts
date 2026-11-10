@@ -1,12 +1,10 @@
 plugins {
     `kotlin-dsl`
-    `kotlin-dsl-precompiled-script-plugins`
 }
 
 dependencies {
     implementation(libs.android.gradlePlugin)
     implementation(libs.kotlin.gradlePlugin)
-    implementation(libs.ksp.gradlePlugin)
     compileOnly(libs.compose.gradlePlugin)
 }
 
@@ -22,6 +20,11 @@ gradlePlugin {
             implementationClass = "AndroidLibraryPlugin"
         }
 
+        register("KotlinLibrary") {
+            id = "tddy.ko.linechart.kotlin.library"
+            implementationClass = "KotlinLibraryPlugin"
+        }
+
         register("ComposeApplication") {
             id = "tddy.ko.linechart.compose.application"
             implementationClass = "ComposeApplicationPlugin"
@@ -30,11 +33,6 @@ gradlePlugin {
         register("ComposeLibrary") {
             id = "tddy.ko.linechart.compose.library"
             implementationClass = "ComposeLibraryPlugin"
-        }
-
-        register("TestLibrary") {
-            id = "tddy.ko.linechart.test.library"
-            implementationClass = "TestLibraryPlugin"
         }
     }
 }

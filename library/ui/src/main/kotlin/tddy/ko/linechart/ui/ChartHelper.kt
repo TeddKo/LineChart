@@ -1,5 +1,7 @@
 package tddy.ko.linechart.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.DurationBasedAnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -10,11 +12,19 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -22,40 +32,73 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.abs
+import kotlin.math.roundToLong
 
-val CHART_DATA_POINT_UNSPECIFIED = ChartDataPoint(Long.MIN_VALUE, true)
-val DRAG_SELECTION_NONE = DragSelection(Offset.Zero, CHART_DATA_POINT_UNSPECIFIED)
+private const val LEGACY_SCALE_FACTOR = 10_000
+private const val DEFAULT_SLOT_DP = 8f
+private const val MIN_SLOT_DP = 2f
+private const val MAX_SLOT_DP = 40f
+private const val MIN_MAIN_DP = 120f
+private const val MIN_PANE_DP = 40f
+private const val SEPARATOR_ZONE_DP = 12f
 
+public val CHART_DATA_POINT_UNSPECIFIED: ChartDataPoint = ChartDataPoint(Long.MIN_VALUE, true)
+public val DRAG_SELECTION_NONE: DragSelection = DragSelection(Offset.Zero, CHART_DATA_POINT_UNSPECIFIED)
+
+/**
+ * Single sample of the chart, the line value being [cumulativeProfit] as the candle close.
+ *
+ * @property cumulativeProfit line value and candle close
+ * @property date epoch millis, identity key of the sample
+ * @property open candle open, defaulting to the close
+ * @property high candle high, defaulting to the larger of open and close
+ * @property low candle low, defaulting to the smaller of open and close
+ * @property volume traded volume, 0 when absent
+ * @property value traded value, 0 when absent
+ */
 @Stable
-data class ChartData(
-    val cumulativeProfit: Double,
-    val date: Long
-)
-
-@Stable
-data class ChartDataPoint(
-    val value: Long,
-    val isPositive: Boolean
-)
-
-@Stable
-data class DragSelection(
-    val position: Offset,
-    val item: ChartDataPoint,
-    val interpolatedValue: Long = 0L,
-    val index: Int = -1
-)
-
-@Stable
-data class CubicSegment(
-    val start: Offset,
-    val control1: Offset,
-    val control2: Offset,
-    val end: Offset
+public data class ChartData(
+    public val cumulativeProfit: Double,
+    public val date: Long,
+    public val open: Double = cumulativeProfit,
+    public val high: Double = maxOf(open, cumulativeProfit),
+    public val low: Double = minOf(open, cumulativeProfit),
+    public val volume: Double = 0.0,
+    public val value: Double = 0.0,
 ) {
-    fun getPointAt(t: Float): Offset {
+    @Deprecated("Binary compatibility", level = DeprecationLevel.HIDDEN)
+    public constructor(cumulativeProfit: Double, date: Long) : this(cumulativeProfit, date, cumulativeProfit)
+
+    @Deprecated("Binary compatibility", level = DeprecationLevel.HIDDEN)
+    public fun copy(cumulativeProfit: Double = this.cumulativeProfit, date: Long = this.date): ChartData =
+        copy(cumulativeProfit = cumulativeProfit, date = date, open = open)
+}
+
+@Stable
+public data class ChartDataPoint(
+    public val value: Long,
+    public val isPositive: Boolean
+)
+
+@Stable
+public data class DragSelection(
+    public val position: Offset,
+    public val item: ChartDataPoint,
+    public val interpolatedValue: Long = 0L,
+    public val index: Int = -1
+)
+
+@Stable
+public data class CubicSegment(
+    public val start: Offset,
+    public val control1: Offset,
+    public val control2: Offset,
+    public val end: Offset
+) {
+    public fun getPointAt(t: Float): Offset {
         val t1 = 1f - t
         val t2 = t * t
         val t3 = t2 * t
@@ -69,17 +112,17 @@ data class CubicSegment(
     }
 }
 
-interface DragGestureListener {
-    fun onDrag(offset: Offset)
-    fun onDragStart(offset: Offset)
-    fun onDragEnd()
+public interface DragGestureListener {
+    public fun onDrag(offset: Offset)
+    public fun onDragStart(offset: Offset)
+    public fun onDragEnd()
 }
 
-abstract class DragHandler : DragGestureListener {
-    abstract fun selectedBy(offset: Offset): DragSelection
+public abstract class DragHandler : DragGestureListener {
+    public abstract fun selectedBy(offset: Offset): DragSelection
 
     private val _selected = MutableStateFlow(DRAG_SELECTION_NONE)
-    val selected = _selected.asStateFlow()
+    public val selected: StateFlow<DragSelection> = _selected.asStateFlow()
 
     override fun onDrag(offset: Offset) {
         val newSelection = selectedBy(offset)
@@ -98,7 +141,7 @@ abstract class DragHandler : DragGestureListener {
     }
 }
 
-fun Modifier.bindDragGestures(vararg listeners: DragGestureListener) = pointerInput(Unit) {
+public fun Modifier.bindDragGestures(vararg listeners: DragGestureListener): Modifier = pointerInput(*listeners) {
     detectTapGestures(
         onPress = { offset ->
             listeners.forEach { it.onDragStart(offset) }
@@ -106,7 +149,7 @@ fun Modifier.bindDragGestures(vararg listeners: DragGestureListener) = pointerIn
             listeners.forEach { it.onDragEnd() }
         }
     )
-}.pointerInput(Unit) {
+}.pointerInput(*listeners) {
     detectHorizontalDragGestures(
         onDragStart = { offset -> listeners.forEach { it.onDragStart(offset) } },
         onDragCancel = { listeners.forEach { it.onDragEnd() } },
@@ -121,14 +164,14 @@ fun Modifier.bindDragGestures(vararg listeners: DragGestureListener) = pointerIn
     )
 }
 
-class ChartCanvasManager(private val itemCount: Int) {
+public class ChartCanvasManager(private val itemCount: Int) {
     private var canvasSize = Size.Unspecified
     private var offsets = listOf<Offset>()
     private var lineSegments = listOf<CubicSegment>()
 
-    fun getCurrentOffsets(): List<Offset> = offsets
+    public fun getCurrentOffsets(): List<Offset> = offsets
 
-    fun calculateOffsets(
+    public fun calculateOffsets(
         scope: DrawScope,
         items: List<ChartDataPoint>,
         yFractionCalculator: (Long) -> Float
@@ -163,12 +206,12 @@ class ChartCanvasManager(private val itemCount: Int) {
         }
     }
 
-    fun getLineSegments() = lineSegments
-    fun getCanvasSize() = canvasSize
+    public fun getLineSegments(): List<CubicSegment> = lineSegments
+    public fun getCanvasSize(): Size = canvasSize
 }
 
-class ChartValueCalculator(private val items: List<ChartDataPoint>) {
-    val valueRange: Triple<Long, Long, Long> by lazy {
+public class ChartValueCalculator(private val items: List<ChartDataPoint>) {
+    public val valueRange: Triple<Long, Long, Long> by lazy {
         val min = items.minOfOrNull { it.value } ?: 0L
         val max = items.maxOfOrNull { it.value } ?: 0L
         val range = (max - min).coerceAtLeast(1L)
@@ -184,14 +227,14 @@ class ChartValueCalculator(private val items: List<ChartDataPoint>) {
 
     private val yFractionCache = LruCache<Long, Float>(100)
 
-    fun yFractionOf(value: Long): Float = yFractionCache.getOrPut(value) {
+    public fun yFractionOf(value: Long): Float = yFractionCache.getOrPut(value) {
         val (min, max) = valueRange
         val paddedMin = min - (max - min) * 0.05
         val paddedMax = max + (max - min) * 0.05
         1f - ((value - paddedMin) / (paddedMax - paddedMin)).toFloat()
     }
 
-    fun calculateYAxisTicks(yAxisTicksCount: Int): List<Long> {
+    public fun calculateYAxisTicks(yAxisTicksCount: Int): List<Long> {
         val (min, max, range) = valueRange
         val paddedMin = min - (range * 0.05)
         val paddedMax = max + (range * 0.05)
@@ -203,14 +246,14 @@ class ChartValueCalculator(private val items: List<ChartDataPoint>) {
     }
 }
 
-class ChartDragManager(
+public class ChartDragManager(
     private val items: List<ChartDataPoint>,
     private val canvasManager: ChartCanvasManager,
     private val valueCalculator: ChartValueCalculator
 ) {
     private var lastSelectedIndex = -1
 
-    fun findClosestPoint(point: Offset): Triple<Offset, Int, ChartDataPoint> {
+    public fun findClosestPoint(point: Offset): Triple<Offset, Int, ChartDataPoint> {
         val lineSegments = canvasManager.getLineSegments()
 
         if (lineSegments.isEmpty()) {
@@ -318,113 +361,256 @@ class ChartDragManager(
         abs(currentValue - interpolatedValue) > threshold
     }
 
-    fun updateLastSelectedIndex(index: Int) {
+    public fun updateLastSelectedIndex(index: Int) {
         lastSelectedIndex = index
     }
 
-    fun getLastSelectedIndex() = lastSelectedIndex
+    public fun getLastSelectedIndex(): Int = lastSelectedIndex
 }
 
-class LineChartState(
-    private val items: List<ChartDataPoint>,
-    private val defaultPositive: Boolean,
-    val labels: List<String>,
-    val strokeWidth: Dp,
-    val yAxisTicksCount: Int,
+/**
+ * State of the chart holding the series, the viewport and the crosshair, updated in place by [rememberLineChartState].
+ */
+@Stable
+public class LineChartState internal constructor(
+    strokeWidth: Dp,
+    yAxisTicksCount: Int,
+    scaleFactor: Int,
 ) : DragHandler() {
-    val itemCount = items.size
-    private val valueFormatter: (Long) -> String = { value -> "%.1f".format(value / 10000.0) }
-    val formatValue: (Long) -> String = valueFormatter
+    private var source: List<ChartData> = emptyList()
+    private var sourceMax: Int = Int.MAX_VALUE
+    internal var series: Series by mutableStateOf(Series(emptyList()))
+        private set
 
-    private val canvasManager = ChartCanvasManager(itemCount)
-    private val valueCalculator = ChartValueCalculator(items)
-    private val dragManager = ChartDragManager(items, canvasManager, valueCalculator)
+    internal val items: List<ChartData> get() = series.items
+    private var wantedOverlays: List<Overlay> = emptyList()
+    private var wantedPanes: List<PaneIndicator> = emptyList()
+    private var wantedSettings: ChartSettings? = null
+    internal var computed: Computed by mutableStateOf(Computed.Empty)
+        private set
+    internal var scroll: Float by mutableFloatStateOf(0f)
+    private var followOnRelease = false
+    internal var slot: Float by mutableFloatStateOf(Float.NaN)
+    internal var crosshair: Offset by mutableStateOf(Offset.Unspecified)
+    internal var pad: Int by mutableIntStateOf(0)
+    internal var paneDeltas: List<Float> by mutableStateOf(emptyList())
+    internal var resizing: Int by mutableIntStateOf(-1)
+    internal var plot: Rect = Rect.Zero
+    internal var frame: Frame? = null
+    internal var axisW: Float = 0f
+    internal val entry: Animatable<Float, AnimationVector1D> = Animatable(0f)
+    internal var density: Float = 1f
+    internal var scaleFactor: Int by mutableIntStateOf(scaleFactor)
 
-    val yAxisTicks by lazy { valueCalculator.calculateYAxisTicks(yAxisTicksCount) }
+    public var strokeWidth: Dp by mutableStateOf(strokeWidth)
+        private set
 
-    fun stroke(scope: DrawScope) = with(scope) {
+    public var yAxisTicksCount: Int by mutableIntStateOf(yAxisTicksCount)
+        private set
+
+    /**
+     * Legacy 1.0.0 constructor kept for binary compatibility, mapping each data point to a scaled series without dates.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    @Deprecated("Binary compatibility", level = DeprecationLevel.HIDDEN)
+    public constructor(
+        items: List<ChartDataPoint>,
+        defaultPositive: Boolean,
+        labels: List<String>,
+        strokeWidth: Dp,
+        yAxisTicksCount: Int,
+    ) : this(strokeWidth, yAxisTicksCount, LEGACY_SCALE_FACTOR) {
+        update(items.map { ChartData(it.value / LEGACY_SCALE_FACTOR.toDouble(), 0L) }, Int.MAX_VALUE)
+    }
+
+    public val itemCount: Int get() = series.items.size
+
+    internal val slotCount: Int get() = itemCount + if (plot.width > 0f) clampPad(pad, itemCount, plot.width, slotFor(plot.width, itemCount + pad)) else pad
+
+    public val labels: List<String> get() = series.labels
+
+    public val formatValue: (Long) -> String
+        get() {
+            val factor = scaleFactor.toDouble()
+            return { value -> formatPrice(value / factor) }
+        }
+
+    public val yAxisTicks: List<Long>
+        get() {
+            val range = mainYRange()
+            return niceTicks(range.min, range.max, yAxisTicksCount)
+                .map { (it * scaleFactor).roundToLong() }
+                .asReversed()
+        }
+
+    public val isPositive: Boolean
+        get() = if (selected.value == DRAG_SELECTION_NONE) {
+            items.size < 2 || items.last().cumulativeProfit >= items.first().cumulativeProfit
+        } else {
+            selected.value.item.isPositive
+        }
+
+    internal fun update(
+        items: List<ChartData>,
+        maxDataPoints: Int,
+        strokeWidth: Dp = this.strokeWidth,
+        yAxisTicksCount: Int = this.yAxisTicksCount,
+        scaleFactor: Int = this.scaleFactor,
+    ) {
+        this.strokeWidth = strokeWidth
+        this.yAxisTicksCount = yAxisTicksCount
+        this.scaleFactor = scaleFactor
+        if (items === source && maxDataPoints == sourceMax) return
+        source = items
+        sourceMax = maxDataPoints
+        val limited = if (maxDataPoints > 0 && items.size > maxDataPoints) items.takeLast(maxDataPoints) else items
+        val next = nextScroll(scroll, appendedCount(this.items, limited), crosshair.isSpecified)
+        series = Series(limited)
+        recompute()
+        val width = plot.width
+        scroll = if (width > 0f) clampScroll(next, slotCount, width, slotFor(width)) else next
+    }
+
+    /**
+     * Indicators and settings of the panel, recomputed only when one of them differs from the last call.
+     */
+    internal fun setIndicators(overlays: List<Overlay>, panes: List<PaneIndicator>, settings: ChartSettings) {
+        if (overlays == wantedOverlays && panes == wantedPanes && settings == wantedSettings) return
+        wantedOverlays = overlays
+        wantedPanes = panes
+        wantedSettings = settings
+        val previousPanes = computed.panes
+        recompute()
+        pad = totalPad(settings.rightMargin, computed.overlays.maxOfOrNull { it.rightPad } ?: 0)
+        paneDeltas = remapPaneDeltas(previousPanes, paneDeltas, computed.panes)
+    }
+
+    /**
+     * Move of the separator [boundary] of the last drawn frame by [dy] px, keeping the total height and the minimum heights of the areas.
+     */
+    internal fun resizeBy(boundary: Int, dy: Float) {
+        val layout = frame?.layout ?: return
+        val heights = listOf(layout.main.height) + layout.panes.map { it.height }
+        val mins = List(heights.size) { (if (it == 0) MIN_MAIN_DP else MIN_PANE_DP) * density }
+        val next = resizeBoundary(heights, boundary, dy, mins)
+        paneDeltas = List(heights.size - 1) { paneDeltas.getOrElse(it) { 0f } + next[it + 1] - heights[it + 1] }
+    }
+
+    internal fun separatorAt(y: Float): Int = frame?.layout?.let { separatorAt(it, y, SEPARATOR_ZONE_DP * density) } ?: -1
+
+    private fun recompute() {
+        computed = computeIndicators(series, wantedOverlays, wantedPanes, wantedSettings ?: ChartSettings(), computed)
+    }
+
+    internal fun slotPx(): Float = slotFor(plot.width)
+
+    internal fun slotFor(plotWidth: Float, slots: Int = slotCount): Float {
+        val maxSlot = MAX_SLOT_DP * density
+        return effectiveSlot(slot, DEFAULT_SLOT_DP * density, minSlot(plotWidth, slots, MIN_SLOT_DP * density, maxSlot), maxSlot)
+    }
+
+    /**
+     * Viewport change by a pinch [zoom] around focal x [focalX] and a horizontal pan of [panX] px.
+     */
+    internal fun transform(focalX: Float, zoom: Float, panX: Float) {
+        val width = plot.width
+        if (itemCount == 0 || width <= 0f || !focalX.isFinite() || !zoom.isFinite() || !panX.isFinite()) return
+        val old = slotPx()
+        val maxSlot = MAX_SLOT_DP * density
+        val new = (old * zoom).coerceIn(minSlot(width, slotCount, MIN_SLOT_DP * density, maxSlot), maxSlot)
+        val zoomed = zoomScroll(scroll, width, old, new, focalX - plot.left)
+        slot = new
+        scroll = clampScroll(zoomed + panX / new, slotCount, width, new)
+    }
+
+    private fun mainYRange(): YRange {
+        val n = itemCount
+        val width = plot.width
+        val range = if (width > 0f) {
+            val slot = slotPx()
+            visibleRange(n, clampScroll(scroll, n, width, slot), width, slot)
+        } else {
+            0 until n
+        }
+        return visibleYRange(items, range, ChartType.Line)
+    }
+
+    public fun stroke(scope: DrawScope): Stroke = with(scope) {
         Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
     }
 
-    fun getOffsets(scope: DrawScope): List<Offset> =
-        canvasManager.calculateOffsets(scope, items, valueCalculator::yFractionOf)
-
-    val isPositive: Boolean get() = if (selected.value == DRAG_SELECTION_NONE) defaultPositive else selected.value.item.isPositive
+    public fun getOffsets(scope: DrawScope): List<Offset> {
+        val width = scope.size.width
+        val height = scope.size.height
+        plot = Rect(0f, 0f, width, height)
+        density = scope.density
+        val n = itemCount
+        if (n == 0) return emptyList()
+        val slot = slotPx()
+        val scroll = clampScroll(scroll, n, width, slot)
+        val range = visibleYRange(items, visibleRange(n, scroll, width, slot), ChartType.Line)
+        return List(n) { i ->
+            Offset(xOf(i, n, scroll, width, slot), yOf(items[i].cumulativeProfit, range, 0f, height))
+        }
+    }
 
     override fun selectedBy(offset: Offset): DragSelection {
-        val currentOffsets = canvasManager.getCurrentOffsets()
-        if (currentOffsets.isEmpty() || offset.x !in currentOffsets.first().x..currentOffsets.last().x) {
-            return DRAG_SELECTION_NONE
-        }
-
-        val (closestPoint, segmentIndex, displayPoint) = dragManager.findClosestPoint(offset)
-        val currentIndex =
-            if (displayPoint == items[segmentIndex]) segmentIndex else segmentIndex + 1
-
-        if (currentIndex != dragManager.getLastSelectedIndex()) {
-            dragManager.updateLastSelectedIndex(currentIndex)
-            return DragSelection(
-                position = closestPoint,
-                item = displayPoint,
-                interpolatedValue = displayPoint.value,
-                index = currentIndex
-            )
-        }
-
+        val n = itemCount
+        val width = plot.width
+        if (n == 0 || width <= 0f || !offset.x.isFinite()) return DRAG_SELECTION_NONE
+        val slot = slotPx()
+        val slots = slotCount
+        val scroll = clampScroll(scroll, slots, width, slot)
+        val index = indexAt(offset.x - plot.left, slots, scroll, width, slot, n)
+        val range = frame?.range ?: visibleYRange(items, visibleRange(slots, scroll, width, slot, n), ChartType.Line)
+        val close = items[index].cumulativeProfit
+        val value = (close * scaleFactor).roundToLong()
         return DragSelection(
-            position = closestPoint,
-            item = displayPoint,
-            interpolatedValue = displayPoint.value,
-            index = dragManager.getLastSelectedIndex()
+            position = Offset(
+                plot.left + xOf(index, slots, scroll, width, slot),
+                plot.top + yOf(close, range, 0f, plot.height),
+            ),
+            item = ChartDataPoint(value, direction(items, index, ChartType.Line) >= 0),
+            interpolatedValue = value,
+            index = index,
         )
     }
 
+    override fun onDragStart(offset: Offset) {
+        followOnRelease = scroll <= FOLLOW_SCROLL
+        crosshair = offset
+        super.onDragStart(offset)
+    }
+
+    override fun onDrag(offset: Offset) {
+        crosshair = offset
+        super.onDrag(offset)
+    }
+
     override fun onDragEnd() {
+        crosshair = Offset.Unspecified
+        if (followOnRelease) scroll = 0f
         super.onDragEnd()
-        dragManager.updateLastSelectedIndex(-1)
     }
 }
 
 @Composable
-fun rememberLineChartState(
+public fun rememberLineChartState(
     items: List<ChartData>,
     maxDataPoints: Int = Int.MAX_VALUE,
     yAxisTicksCount: Int = 5,
     scaleFactor: Int = 10000,
     strokeWidth: Dp = 2.dp
 ): LineChartState {
-    val limitedItems = remember(items) {
-        if (items.size <= maxDataPoints) items
-        else items.filterIndexed { index, _ ->
-            index % (items.size / maxDataPoints) == 0
-        }.take(maxDataPoints)
+    val state = remember {
+        LineChartState(strokeWidth, yAxisTicksCount, scaleFactor).apply { update(items, maxDataPoints) }
     }
-
-    return remember(limitedItems) {
-
-        val defaultPositive = limitedItems.lastOrNull()?.cumulativeProfit?.let { it > 0 } ?: true
-
-        val chartData = limitedItems.map {
-            ChartDataPoint(
-                value = (it.cumulativeProfit * scaleFactor).toLong(),
-                isPositive = it.cumulativeProfit > 0
-            )
-        }
-
-        val labels = List(chartData.size) { (it + 1).toString() }
-
-        LineChartState(
-            items = chartData,
-            labels = labels,
-            strokeWidth = strokeWidth,
-            yAxisTicksCount = yAxisTicksCount,
-            defaultPositive = defaultPositive
-        )
-    }
+    SideEffect { state.update(items, maxDataPoints, strokeWidth, yAxisTicksCount, scaleFactor) }
+    return state
 }
 
 @Composable
-fun infiniteTransitionValue(
+public fun infiniteTransitionValue(
     initialValue: Float = 0f,
     targetValue: Float,
     durationMillis: Int,
@@ -444,4 +630,23 @@ fun infiniteTransitionValue(
         ),
         label = "infiniteTransitionValue"
     ).value
+}
+
+/**
+ * Height [deltas] of the [previous] panes carried to the [next] panes: first every pane takes the delta of an unclaimed equal previous pane, then the remaining panes take the one of their kind at their own position, else any of their kind, and zero when there is none.
+ */
+internal fun remapPaneDeltas(previous: List<PaneIndicator>, deltas: List<Float>, next: List<PaneIndicator>): List<Float> {
+    if (deltas.isEmpty()) return deltas
+    val claimed = BooleanArray(previous.size)
+    val source = IntArray(next.size) { -1 }
+    next.forEachIndexed { k, pane ->
+        previous.indices.firstOrNull { !claimed[it] && previous[it] == pane }?.let { claimed[it] = true; source[k] = it }
+    }
+    next.forEachIndexed { k, pane ->
+        if (source[k] >= 0) return@forEachIndexed
+        val free = { j: Int -> !claimed[j] && previous[j]::class == pane::class }
+        val j = k.takeIf { it < previous.size && free(it) } ?: previous.indices.firstOrNull(free)
+        if (j != null) { claimed[j] = true; source[k] = j }
+    }
+    return source.map { if (it < 0) 0f else deltas.getOrElse(it) { 0f } }
 }

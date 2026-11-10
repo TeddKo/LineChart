@@ -7,3 +7,6 @@
 /demo/design-system/build/
 /demo/feature/build/
 /library/ui/build/
+/library/orderbook/build/
+/local.properties
+/build/

@@ -1,5 +1,6 @@
 package tddy.ko.linechart.desigh_system.theme
 
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
@@ -16,6 +17,15 @@ internal val LightColorScheme = lightColorScheme(
     secondary = purple500,
     tertiary = purple700,
     surface = Color.White,
+    inversePrimary = positive,
+    error = warning
+)
+
+internal val DarkColorScheme = darkColorScheme(
+    primary = purple200,
+    secondary = purple500,
+    tertiary = purple700,
+    surface = Color(0xFF121212),
     inversePrimary = positive,
     error = warning
 )

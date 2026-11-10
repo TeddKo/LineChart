@@ -1,6 +1,8 @@
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.kotlin.dsl.dependencies
 import tddy.ko.linechart.build_logic.extension.configureComposeExtension
+import tddy.ko.linechart.build_logic.extension.library
 import tddy.ko.linechart.build_logic.extension.libraryExtension
 import tddy.ko.linechart.build_logic.extension.libs
 import tddy.ko.linechart.build_logic.extension.plugin

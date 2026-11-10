@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.tddy.ko.android.application)
     alias(libs.plugins.tddy.ko.compose.application)
-    alias(libs.plugins.tddy.ko.test.library)
 }
 
 android {
@@ -10,7 +9,7 @@ android {
     defaultConfig {
         applicationId = "tddy.ko.linechart"
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
