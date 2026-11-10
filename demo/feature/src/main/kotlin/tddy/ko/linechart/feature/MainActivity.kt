@@ -41,6 +41,7 @@ import tddy.ko.linechart.ui.TimeframeUnit
 import tddy.ko.linechart.ui.aggregate
 import tddy.ko.linechart.ui.rememberLineChartState
 import java.util.Locale
+import kotlin.math.roundToLong
 import kotlin.random.Random
 
 private const val TICK_MILLIS = 250L
@@ -63,7 +64,7 @@ private val Timeframes = listOf(
 )
 
 private fun nextTick(random: Random, previous: Double, date: Long): ChartData {
-    val close = (previous * (1.0 + random.nextDouble(-0.0006, 0.0006))).coerceAtLeast(1.0)
+    val close = (previous * (1.0 + random.nextDouble(-0.0006, 0.0006))).roundToLong().coerceAtLeast(1L).toDouble()
     return ChartData(close, date, open = previous, high = maxOf(previous, close), low = minOf(previous, close), volume = random.nextDouble(1.0, 100.0))
 }
 
@@ -79,9 +80,9 @@ private fun dailySeries(random: Random, end: Long): List<ChartData> {
     val days = DAILY_YEARS * 365
     return List(days) { index ->
         val open = price
-        val close = (open * (1.0 + random.nextDouble(-0.025, 0.026))).coerceAtLeast(1.0)
-        val high = maxOf(open, close) * (1.0 + random.nextDouble(0.0, 0.01))
-        val low = minOf(open, close) * (1.0 - random.nextDouble(0.0, 0.01))
+        val close = (open * (1.0 + random.nextDouble(-0.025, 0.026))).roundToLong().coerceAtLeast(1L).toDouble()
+        val high = (maxOf(open, close) * (1.0 + random.nextDouble(0.0, 0.01))).roundToLong().toDouble()
+        val low = (minOf(open, close) * (1.0 - random.nextDouble(0.0, 0.01))).roundToLong().toDouble()
         price = close
         ChartData(close, end - (days - index) * DAY_MILLIS, open, high, low, random.nextDouble(1_000.0, 90_000.0))
     }
