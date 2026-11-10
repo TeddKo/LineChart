@@ -8,12 +8,6 @@ import androidx.compose.ui.unit.dp
 internal val MacdColors: List<Color> = listOf(Color(0xFF1E88E5), Color(0xFFFB8C00))
 internal val TrixColors: List<Color> = listOf(Color(0xFFE53935), Color(0xFF1E88E5))
 
-private fun requirePositive(vararg values: Int) = require(values.all { it >= 1 }) { "periods must be positive" }
-
-private fun requireWeight(weight: Float) = require(weight > 0f) { "weight must be positive" }
-
-private fun List<Color>.at(k: Int): Color = getOrElse(k) { Color.Unspecified }
-
 /**
  * Moving average convergence divergence line, its signal line and their difference, NaN until the signal line starts.
  */

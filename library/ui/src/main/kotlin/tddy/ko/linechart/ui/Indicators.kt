@@ -170,3 +170,9 @@ internal fun legendLine(spec: ChartSpec, key: String, args: String, marks: List<
         }
     }
 }
+
+internal fun requirePositive(vararg values: Int) = require(values.all { it >= 1 }) { "periods must be positive" }
+
+internal fun requireWeight(weight: Float) = require(weight > 0f) { "weight must be positive" }
+
+internal fun List<Color>.at(k: Int): Color = getOrElse(k) { Color.Unspecified }

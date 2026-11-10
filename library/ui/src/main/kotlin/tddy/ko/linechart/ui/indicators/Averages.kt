@@ -151,3 +151,20 @@ internal fun highest(values: DoubleArray, period: Int): DoubleArray = windowExtr
  * Lowest value of each window of [period] values, NaN until the first full window.
  */
 internal fun lowest(values: DoubleArray, period: Int): DoubleArray = windowExtreme(values, period) { a, b -> a < b }
+
+/**
+ * Wilder smoothing of [period] values, seeded by their simple average from [start] on, NaN before the seed.
+ */
+internal fun wilder(values: DoubleArray, period: Int, start: Int = 0): DoubleArray {
+    val out = DoubleArray(values.size) { Double.NaN }
+    if (start + period > values.size) return out
+    var previous = 0.0
+    for (k in start until start + period) previous += values[k]
+    previous /= period
+    out[start + period - 1] = previous
+    for (i in start + period until values.size) {
+        previous = (previous * (period - 1) + values[i]) / period
+        out[i] = previous
+    }
+    return out
+}
