@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,7 +47,7 @@ fun Stepper(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Uni
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(label, Modifier.weight(1f))
         FilledTonalIconButton(onMinus) { Text("−") }
-        Text(value, Modifier.width(56.dp), textAlign = TextAlign.Center)
+        Text(value, Modifier.widthIn(min = 56.dp), textAlign = TextAlign.Center)
         FilledTonalIconButton(onPlus) { Text("+") }
     }
 }

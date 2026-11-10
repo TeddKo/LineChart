@@ -92,7 +92,7 @@ private fun PriceSection(vm: DemoViewModel) {
     Segmented(listOf("일반" to PriceScale.Linear, "로그" to PriceScale.Log, "퍼센트" to PriceScale.Percent), p.scale) { vm.prefs = p.copy(scale = it) }
     Segmented(listOf("왼쪽 축" to AxisSide.Left, "오른쪽 축" to AxisSide.Right), p.axisSide) { vm.prefs = p.copy(axisSide = it) }
     Stepper("우측 여백(칸)", p.rightMargin.toString(), { vm.prefs = p.copy(rightMargin = (p.rightMargin - 1).coerceAtLeast(0)) }, { vm.prefs = p.copy(rightMargin = (p.rightMargin + 1).coerceAtMost(60)) })
-    SwitchRow("수정주가 (일봉 이상, 2:1 분할 시뮬레이션)", p.adjusted) { vm.prefs = p.copy(adjusted = it) }
+    SwitchRow("수정주가 (일봉 이상)", p.adjusted) { vm.prefs = p.copy(adjusted = it) }
 }
 
 @Composable
@@ -107,6 +107,7 @@ private fun DisplaySection(vm: DemoViewModel) {
     Segmented(listOf("없음" to BaseLine.None, "전일종가" to BaseLine.PreviousClose, "당일시가" to BaseLine.TodayOpen, "피봇" to BaseLine.Pivot), p.baseLine) { vm.prefs = p.copy(baseLine = it) }
     SwitchRow("최고·최저 표시", p.highLow) { vm.prefs = p.copy(highLow = it) }
     SwitchRow("상·하한가", p.priceLimits) { vm.prefs = p.copy(priceLimits = it) }
+    Stepper("상·하한 폭(%)", formatParam(p.limitPercent), { vm.prefs = p.copy(limitPercent = (p.limitPercent - 1).coerceAtLeast(1.0)) }, { vm.prefs = p.copy(limitPercent = (p.limitPercent + 1).coerceAtMost(30.0)) })
     SwitchRow("거래량 이동평균", p.volumeMa) { vm.prefs = p.copy(volumeMa = it) }
 }
 

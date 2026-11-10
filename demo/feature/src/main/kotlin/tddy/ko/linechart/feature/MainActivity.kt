@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
@@ -130,7 +131,7 @@ private fun Screens(vm: DemoViewModel) {
     if (settings) {
         SettingsScreen(vm, onBack = { settings = false })
     } else {
-        Column(Modifier.statusBarsPadding()) {
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { Segmented(listOf("차트" to false, "마켓" to true), market) { market = it } }
             if (market) {
                 MarketScreen(vm.market, vm.prefs.colors(vm.prefs.theme.isDark()))
@@ -148,12 +149,10 @@ private fun Demo(vm: DemoViewModel, onSettings: () -> Unit) {
     val adjustedDaily = remember { dailySeries(random, now) }
     val rawDaily = remember { adjustedDaily.map { if (it.date < now - SPLIT_DAYS_AGO * DAY_MILLIS) it.unadjusted() else it } }
     var ticks by remember { mutableStateOf(tickHistory(random, now)) }
-    var unit by rememberSaveable { mutableStateOf(TimeframeUnit.Minute) }
-    var counts by rememberSaveable {
-        mutableStateOf(mapOf(TimeframeUnit.Tick to 1, TimeframeUnit.Second to 1, TimeframeUnit.Minute to 5))
-    }
     var sheetUnit by remember { mutableStateOf<TimeframeUnit?>(null) }
     var showIndicators by rememberSaveable { mutableStateOf(false) }
+    val unit = vm.unit
+    val counts = vm.counts
     val timeframe = Timeframe(unit, counts[unit] ?: 1)
     var items by remember { mutableStateOf(emptyList<ChartData>()) }
     val prefs = vm.prefs
@@ -203,7 +202,7 @@ private fun Demo(vm: DemoViewModel, onSettings: () -> Unit) {
                 FilterChip(
                     selected = unit == value,
                     onClick = {
-                        unit = value
+                        vm.unit = value
                         if (value.intraday) sheetUnit = value
                     },
                     label = { Text(if (count != null) "$count${value.label()} ▾" else value.label()) },
@@ -224,7 +223,7 @@ private fun Demo(vm: DemoViewModel, onSettings: () -> Unit) {
 
     if (showIndicators) IndicatorSheet(vm, onDismiss = { showIndicators = false })
     sheetUnit?.let { target ->
-        CountSheet(target, counts[target] ?: 1, onSelect = { counts = counts + (target to it) }, onDismiss = { sheetUnit = null })
+        CountSheet(target, counts[target] ?: 1, onSelect = { vm.counts = counts + (target to it) }, onDismiss = { sheetUnit = null })
     }
 }
 

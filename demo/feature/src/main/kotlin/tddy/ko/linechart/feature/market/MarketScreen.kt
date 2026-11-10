@@ -94,7 +94,7 @@ fun MarketScreen(sim: MarketSimulator, colors: ChartColors) {
     }
     val state = rememberLineChartState(items)
 
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.padding(horizontal = 16.dp)) {
             Text("DEMO 한정판 ${ui.selected}", style = MaterialTheme.typography.titleMedium)
             Text(ui.lastPrice?.let { money(it) } ?: "-", style = MaterialTheme.typography.headlineMedium)

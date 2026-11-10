@@ -20,6 +20,7 @@ import tddy.ko.linechart.ui.MovingAverage
 import tddy.ko.linechart.ui.Overlay
 import tddy.ko.linechart.ui.PaneIndicator
 import tddy.ko.linechart.ui.PriceScale
+import tddy.ko.linechart.ui.TimeframeUnit
 
 enum class ThemeMode(val label: String) { System("시스템"), Light("라이트"), Dark("다크") }
 
@@ -41,11 +42,12 @@ data class Prefs(
     val baseLine: BaseLine = BaseLine.None,
     val highLow: Boolean = true,
     val priceLimits: Boolean = false,
+    val limitPercent: Double = 30.0,
     val volumeMa: Boolean = true,
 ) {
     fun settings(): ChartSettings = ChartSettings(
         scale = scale, axisSide = axisSide, rightMargin = rightMargin, grid = grid, crosshair = crosshair, legend = legend,
-        currentPrice = currentPrice, baseLine = baseLine, highLowMarkers = highLow, priceLimits = priceLimits,
+        currentPrice = currentPrice, baseLine = baseLine, highLowMarkers = highLow, priceLimits = priceLimits, limitPercent = limitPercent,
         volumeMa = volumeMa, fontScale = fontScale,
     )
 
@@ -84,6 +86,8 @@ class DemoViewModel : ViewModel() {
     var panes by mutableStateOf(listOf(Catalog.spec("vol").entry()))
     var maLines by mutableStateOf(DefaultMaLines)
     var prefs by mutableStateOf(Prefs())
+    var unit by mutableStateOf(TimeframeUnit.Minute)
+    var counts by mutableStateOf(mapOf(TimeframeUnit.Tick to 1, TimeframeUnit.Second to 1, TimeframeUnit.Minute to 5))
 
     fun reset() {
         overlays = listOf(Catalog.spec("ma").entry())
