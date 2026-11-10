@@ -142,7 +142,7 @@ private fun ChartSpec.axisLabel(series: Series, i: Int, stride: Int): String {
     timeFormatter?.let { return it(date) }
     val pattern = timePattern(timeframe, series.stepMs)
     val newDay = pattern.startsWith("HH") && i > 0 && time("yyyyMMdd", date) != time("yyyyMMdd", series.items[i - 1].date)
-    return time(if (newDay) "MM/dd" else pattern, date)
+    return time(axisPattern(pattern, newDay, stride, series.stepMs), date)
 }
 
 /**

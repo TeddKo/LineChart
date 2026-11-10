@@ -92,4 +92,16 @@ class FormatTest {
         assertEquals("70.46", formatOscillator(70.4637))
         assertEquals("-0.50", formatOscillator(-0.5))
     }
+
+    @Test
+    fun axisPattern_showsTheDateForNewDaysAndLabelsSpanningADay() {
+        val hours4 = 4 * 3_600_000L
+        assertEquals("MM/dd", axisPattern("HH:mm", true, 1, hours4))
+        assertEquals("HH:mm", axisPattern("HH:mm", false, 1, hours4))
+        assertEquals("MM/dd", axisPattern("HH:mm", false, 6, hours4))
+        assertEquals("HH:mm", axisPattern("HH:mm", false, 5, hours4))
+        assertEquals("HH:mm:ss", axisPattern("HH:mm:ss", false, 100, 60_000L))
+        assertEquals("yyyy/MM", axisPattern("yyyy/MM", true, 50, 28 * 86_400_000L))
+        assertEquals("MM/dd", axisPattern("MM/dd", false, 50, 86_400_000L))
+    }
 }

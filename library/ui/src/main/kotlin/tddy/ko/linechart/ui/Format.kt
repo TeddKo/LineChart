@@ -72,6 +72,12 @@ internal fun tagPattern(timeframe: Timeframe?, stepMs: Long): String = when (uni
 }
 
 /**
+ * Time axis label pattern, the date `MM/dd` instead of an intraday [pattern] at the first candle of a new day or where [stride] candles of [stepMs] span a day or more.
+ */
+internal fun axisPattern(pattern: String, newDay: Boolean, stride: Int, stepMs: Long): String =
+    if (pattern.startsWith("HH") && (newDay || stride * stepMs >= DAY_MILLIS)) "MM/dd" else pattern
+
+/**
  * Smallest stride of 1, 2, 5, 10, 20, 50 and so on whose span of slots fits a label of [labelWidth].
  */
 internal fun labelStride(slot: Float, labelWidth: Float): Int {
