@@ -50,8 +50,8 @@ class MarketUiState(
 
 /**
  * Demo market over [MatchingEngine] with an injected clock: seeded history, then a live loop of random orders.
- * Every engine access runs on the caller's thread, the seeding yields between steps so the screen stays responsive,
- * and a cancelled seeding resumes from its last step instead of starting again.
+ * Engine access on the caller's thread only, seeding with a yield between steps for a responsive screen,
+ * and a cancelled seeding resuming from its last step instead of restarting.
  */
 class MarketSimulator(private val random: Random = Random(11)) {
     private var now = System.currentTimeMillis()

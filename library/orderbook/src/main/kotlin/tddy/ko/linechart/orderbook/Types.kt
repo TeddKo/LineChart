@@ -58,7 +58,7 @@ public class BookSnapshot internal constructor(
 }
 
 /**
- * Fee of one side of a trade, caps live inside the policy. Implementations must not throw.
+ * Fee of one side of a trade, caps live inside the policy, with a no-throw requirement for implementations.
  */
 public fun interface FeePolicy {
     /** Fee in KRW charged to [side] for [quantity] filled at [price]. */
