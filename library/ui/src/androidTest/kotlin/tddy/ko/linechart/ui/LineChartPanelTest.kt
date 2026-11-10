@@ -2,6 +2,8 @@ package tddy.ko.linechart.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -133,6 +135,24 @@ class LineChartPanelTest {
         rule.runOnIdle {
             assertTrue(scrollState.value > 0)
             assertEquals(0f, state.scroll, 0f)
+        }
+    }
+
+    @Test
+    fun horizontalPan_isNotLeakedToAHorizontalParent() {
+        lateinit var scrollState: ScrollState
+        rule.setContent {
+            scrollState = rememberScrollState()
+            state = rememberLineChartState(series(300))
+            Row(Modifier.horizontalScroll(scrollState)) {
+                LineChartPanel(Modifier.testTag("chart").width(400.dp), 300.dp, state)
+                Spacer(Modifier.width(800.dp))
+            }
+        }
+        rule.onNodeWithTag("chart").performTouchInput { swipeRight(startX = 100f, endX = 600f) }
+        rule.runOnIdle {
+            assertTrue(state.scroll > 0f)
+            assertEquals(0, scrollState.value)
         }
     }
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
@@ -46,6 +47,7 @@ internal fun Modifier.chartGestures(state: LineChartState): Modifier = pointerIn
                     if (pressed.isEmpty()) return@withTimeoutOrNull
                     val moved = pressed[0].position - down.position
                     kind = classifyGesture(moved.x, moved.y, viewConfiguration.touchSlop, pressed.size)
+                    if (kind == GestureKind.Pan || kind == GestureKind.Zoom) event.changes.forEach { it.consume() }
                 }
             }
             when {
@@ -68,7 +70,8 @@ internal fun Modifier.chartGestures(state: LineChartState): Modifier = pointerIn
                     do {
                         val event = awaitPointerEvent()
                         event.changes.firstOrNull { it.pressed }?.let {
-                            state.transform(event.calculateCentroid().x, event.calculateZoom(), event.calculatePan().x)
+                            val centroid = event.calculateCentroid()
+                            if (centroid.isSpecified) state.transform(centroid.x, event.calculateZoom(), event.calculatePan().x)
                             tracker.addPosition(it.uptimeMillis, it.position)
                         }
                         event.changes.forEach { it.consume() }
@@ -76,10 +79,13 @@ internal fun Modifier.chartGestures(state: LineChartState): Modifier = pointerIn
                     val slot = state.slotPx()
                     val velocity = tracker.calculateVelocity().x
                     fling = launch {
-                        AnimationState(state.scroll * slot, velocity).animateDecay(splineBasedDecay(this@pointerInput)) {
-                            val clamped = clampScroll(value / slot, state.itemCount, state.plot.width, slot)
+                        var previous = 0f
+                        AnimationState(0f, velocity).animateDecay(splineBasedDecay(this@pointerInput)) {
+                            val target = state.scroll + (value - previous) / slot
+                            previous = value
+                            val clamped = clampScroll(target, state.itemCount, state.plot.width, slot)
                             state.scroll = clamped
-                            if (clamped != value / slot) cancelAnimation()
+                            if (clamped != target) cancelAnimation()
                         }
                     }
                 }
