@@ -41,6 +41,9 @@ private const val LEGACY_SCALE_FACTOR = 10_000
 private const val DEFAULT_SLOT_DP = 8f
 private const val MIN_SLOT_DP = 2f
 private const val MAX_SLOT_DP = 40f
+private const val MIN_MAIN_DP = 120f
+private const val MIN_PANE_DP = 40f
+private const val SEPARATOR_ZONE_DP = 12f
 
 public val CHART_DATA_POINT_UNSPECIFIED: ChartDataPoint = ChartDataPoint(Long.MIN_VALUE, true)
 public val DRAG_SELECTION_NONE: DragSelection = DragSelection(Offset.Zero, CHART_DATA_POINT_UNSPECIFIED)
@@ -390,6 +393,8 @@ public class LineChartState internal constructor(
     internal var slot: Float by mutableFloatStateOf(Float.NaN)
     internal var crosshair: Offset by mutableStateOf(Offset.Unspecified)
     internal var pad: Int by mutableIntStateOf(0)
+    internal var paneDeltas: List<Float> by mutableStateOf(emptyList())
+    internal var resizing: Int by mutableIntStateOf(-1)
     internal var plot: Rect = Rect.Zero
     internal var frame: Frame? = null
     internal var axisW: Float = 0f
@@ -476,7 +481,21 @@ public class LineChartState internal constructor(
         wantedSettings = settings
         recompute()
         pad = totalPad(settings.rightMargin, computed.overlays.maxOfOrNull { it.rightPad } ?: 0)
+        if (paneDeltas.size > computed.panes.size) paneDeltas = paneDeltas.take(computed.panes.size)
     }
+
+    /**
+     * Moves the separator [boundary] of the last drawn frame by [dy] px, keeping the total height and the minimum heights of the areas.
+     */
+    internal fun resizeBy(boundary: Int, dy: Float) {
+        val layout = frame?.layout ?: return
+        val heights = listOf(layout.main.height) + layout.panes.map { it.height }
+        val mins = List(heights.size) { (if (it == 0) MIN_MAIN_DP else MIN_PANE_DP) * density }
+        val next = resizeBoundary(heights, boundary, dy, mins)
+        paneDeltas = List(heights.size - 1) { paneDeltas.getOrElse(it) { 0f } + next[it + 1] - heights[it + 1] }
+    }
+
+    internal fun separatorAt(y: Float): Int = frame?.layout?.let { separatorAt(it, y, SEPARATOR_ZONE_DP * density) } ?: -1
 
     private fun recompute() {
         computed = computeIndicators(series, wantedOverlays, wantedPanes, wantedSettings ?: ChartSettings(), computed)

@@ -68,6 +68,12 @@ private fun DrawScope.drawOverlayPlot(state: LineChartState, spec: ChartSpec, pu
             drawText(spec.measurer, legend, Offset(0f, layout.panes[k].top), style, softWrap = false, maxLines = 1)
         }
     }
+    val separator = state.resizing
+    if (separator in layout.panes.indices) {
+        val above = if (separator == 0) main.bottom else layout.panes[separator - 1].bottom
+        val y = (above + layout.panes[separator].top) / 2f
+        drawLine(colors.crosshair.copy(alpha = RESIZE_ALPHA), Offset(0f, y), Offset(main.right, y), 2f * d)
+    }
     if (cross.isSpecified) {
         val x = xOf(index, slots, scroll, main.width, slot)
         val paneIndex = layout.panes.indexOfFirst { cross.y in it.top..it.bottom }
@@ -128,3 +134,4 @@ private fun header(spec: ChartSpec, series: Series, i: Int): AnnotatedString {
 }
 
 private const val PULSE_ALPHA = 0.6f
+private const val RESIZE_ALPHA = 0.6f

@@ -225,7 +225,7 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     val axisLeft = settings.axisSide == AxisSide.Left
     val layout = paneLayout(
         size.width, size.height, headerH, timeH, state.axisW, 4f * d,
-        spec.paneHeight.toPx(), computed.panes.map { it.weight }, axisLeft,
+        spec.paneHeight.toPx(), computed.panes.map { it.weight }, axisLeft, state.paneDeltas,
     )
     val main = layout.main
     val plotLeft = if (axisLeft) state.axisW else 0f

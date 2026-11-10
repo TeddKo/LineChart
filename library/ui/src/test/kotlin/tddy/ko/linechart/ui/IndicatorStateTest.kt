@@ -107,6 +107,19 @@ class IndicatorStateTest {
     }
 
     @Test
+    fun paneDeltas_dropForRemovedPanesAndSurviveParameterChanges() {
+        val state = state()
+        state.setIndicators(emptyList(), listOf(Volume(listOf(5)), Volume(listOf(10))), ChartSettings())
+        state.paneDeltas = listOf(12f, -4f)
+        state.setIndicators(emptyList(), listOf(Volume(listOf(7)), Volume(listOf(10))), ChartSettings())
+        assertEquals(listOf(12f, -4f), state.paneDeltas)
+        state.setIndicators(emptyList(), listOf(Volume(listOf(7))), ChartSettings())
+        assertEquals(listOf(12f), state.paneDeltas)
+        state.update(items(40), Int.MAX_VALUE)
+        assertEquals(listOf(12f), state.paneDeltas)
+    }
+
+    @Test
     fun scaleMarks_skipOverlaysOutsideTheScale() {
         val state = state()
         state.setIndicators(listOf(BollingerBands(), Extending(0, scaled = false)), emptyList(), ChartSettings())

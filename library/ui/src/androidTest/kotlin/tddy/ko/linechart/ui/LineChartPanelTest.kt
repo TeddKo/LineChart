@@ -104,6 +104,52 @@ class LineChartPanelTest {
         rule.runOnIdle { assertFalse(state.crosshair.isSpecified) }
     }
 
+    private fun separatorY(index: Int): Float = rule.runOnIdle {
+        val layout = checkNotNull(state.frame).layout
+        val above = if (index == 0) layout.main.bottom else layout.panes[index - 1].bottom
+        (above + layout.panes[index].top) / 2f
+    }
+
+    @Test
+    fun longPressOnSeparatorAndDrag_resizesTheMainAndPaneHeights() {
+        show(200)
+        val before = rule.runOnIdle { checkNotNull(state.frame).layout }
+        val y = separatorY(0)
+        rule.onNodeWithTag("chart").performTouchInput {
+            down(Offset(center.x, y))
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+            moveBy(Offset(0f, -40f))
+        }
+        rule.runOnIdle {
+            assertEquals(0, state.resizing)
+            assertFalse(state.crosshair.isSpecified)
+        }
+        rule.onNodeWithTag("chart").performTouchInput { up() }
+        rule.waitForIdle()
+        val after = rule.runOnIdle { checkNotNull(state.frame).layout }
+        assertEquals(before.main.height - 40f, after.main.height, 1f)
+        assertEquals(before.panes[0].height + 40f, after.panes[0].height, 1f)
+        rule.runOnIdle { assertEquals(-1, state.resizing) }
+    }
+
+    @Test
+    fun longPressAwayFromSeparators_stillShowsTheCrosshair() {
+        show(200)
+        val before = rule.runOnIdle { checkNotNull(state.frame).layout.main.height }
+        rule.onNodeWithTag("chart").performTouchInput {
+            down(Offset(center.x, 60f))
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+            moveBy(Offset(0f, 30f))
+        }
+        rule.runOnIdle {
+            assertTrue(state.crosshair.isSpecified)
+            assertEquals(-1, state.resizing)
+        }
+        rule.onNodeWithTag("chart").performTouchInput { up() }
+        rule.waitForIdle()
+        assertEquals(before, rule.runOnIdle { checkNotNull(state.frame).layout.main.height }, 0.5f)
+    }
+
     @Test
     fun horizontalSwipe_pansBackInTime() {
         show(300)

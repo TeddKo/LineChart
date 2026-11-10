@@ -10,6 +10,8 @@ import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
@@ -31,16 +33,17 @@ internal fun classifyGesture(dx: Float, dy: Float, slop: Float, pointers: Int): 
 }
 
 /**
- * Pan with fling, pinch zoom at the focal point and long-press crosshair, leaving vertical drags unconsumed for the parent.
+ * Pan with fling, pinch zoom at the focal point, long-press crosshair and, when the touch starts on a pane separator, long-press drag that resizes the panes with a [haptic] tick, leaving vertical drags unconsumed for the parent.
  */
-internal fun Modifier.chartGestures(state: LineChartState): Modifier = pointerInput(state) {
+internal fun Modifier.chartGestures(state: LineChartState, haptic: HapticFeedback): Modifier = pointerInput(state) {
     coroutineScope {
         var fling: Job? = null
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             fling?.cancel()
             var kind = GestureKind.Undecided
-            val pending = withTimeoutOrNull(if (state.computed.settings.crosshair) viewConfiguration.longPressTimeoutMillis else Long.MAX_VALUE) {
+            val boundary = state.separatorAt(down.position.y)
+            val pending = withTimeoutOrNull(if (state.computed.settings.crosshair || boundary >= 0) viewConfiguration.longPressTimeoutMillis else Long.MAX_VALUE) {
                 while (kind == GestureKind.Undecided) {
                     val event = awaitPointerEvent()
                     val pressed = event.changes.filter { it.pressed }
@@ -51,6 +54,26 @@ internal fun Modifier.chartGestures(state: LineChartState): Modifier = pointerIn
                 }
             }
             when {
+                pending == null && boundary >= 0 -> {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    state.resizing = boundary
+                    down.consume()
+                    var last: PointerInputChange = down
+                    var y = down.position.y
+                    try {
+                        do {
+                            val event = awaitPointerEvent()
+                            last = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (last.pressed) {
+                                state.resizeBy(boundary, last.position.y - y)
+                                y = last.position.y
+                                last.consume()
+                            }
+                        } while (last.pressed)
+                    } finally {
+                        state.resizing = -1
+                    }
+                }
                 pending == null -> {
                     state.onDragStart(down.position)
                     down.consume()

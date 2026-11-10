@@ -37,6 +37,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -156,7 +157,7 @@ private fun ChartBody(
     val sized = if (chartHeight == null) modifier else {
         modifier.fillMaxWidth().height(chartHeight + paneHeight * shown.sumOf { it.weight.toDouble() }.toFloat() + PANE_GAP * shown.size)
     }
-    Box(sized.chartGestures(state)) {
+    Box(sized.chartGestures(state, LocalHapticFeedback.current)) {
         Spacer(Modifier.fillMaxSize().graphicsLayer().drawBehind { drawMain(state, spec) })
         Spacer(Modifier.fillMaxSize().drawBehind { drawOverlay(state, spec, pulse?.value) })
     }
@@ -174,7 +175,9 @@ public fun LineChart(
 }
 
 /**
- * Interactive line, area or candle chart with pan, fling, pinch zoom, long-press crosshair and live updates.
+ * Interactive line, area or candle chart with pan, fling, pinch zoom, long-press crosshair, pane resizing and live updates.
+ *
+ * A long press away from the separators shows the crosshair. A long press within 12dp of a separator between two areas instead highlights it with a haptic tick, and dragging then moves it, growing the area above and shrinking the one below by the same amount down to 120dp for the main area and 40dp for a pane. The resized heights live in [state], surviving data updates and indicator parameter changes and being dropped for removed panes, but not saved across recreation.
  *
  * Feed new data by passing a new list to [rememberLineChartState]; the viewport, zoom and crosshair survive updates.
  * [timeframe] only labels the time axis and the moving average legend, use [aggregate] to build the candles.
