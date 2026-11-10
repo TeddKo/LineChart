@@ -10,6 +10,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -45,27 +55,35 @@ import kotlin.math.roundToLong
 import kotlin.random.Random
 
 private const val TICK_MILLIS = 250L
-private const val HISTORY_TICKS = 14_400
-private const val HISTORY_STEP_MILLIS = 1_000L
+private const val HISTORY_TICKS = 20_000
+private const val HISTORY_STEP_MILLIS = 30_000L
 private const val DAILY_YEARS = 8
 private const val DAY_MILLIS = 86_400_000L
 private const val BASE_PRICE = 71_000.0
 
-private val Timeframes = listOf(
-    "Tick" to Timeframe.Tick,
-    "1s" to Timeframe.Second1,
-    "5s" to Timeframe.Second5,
-    "1m" to Timeframe.Minute1,
-    "5m" to Timeframe.Minute5,
-    "Day" to Timeframe.Day,
-    "Week" to Timeframe.Week,
-    "Month" to Timeframe.Month,
-    "Year" to Timeframe.Year,
-)
+private val Counts = listOf(1, 3, 5, 10, 15, 30, 60, 120, 240)
+
+private fun TimeframeUnit.label(): String = when (this) {
+    TimeframeUnit.Tick -> "틱"
+    TimeframeUnit.Second -> "초"
+    TimeframeUnit.Minute -> "분"
+    TimeframeUnit.Day -> "일"
+    TimeframeUnit.Week -> "주"
+    TimeframeUnit.Month -> "월"
+    TimeframeUnit.Year -> "년"
+}
+
+private fun TimeframeUnit.sheetTitle(): String = when (this) {
+    TimeframeUnit.Tick -> "틱 간격"
+    TimeframeUnit.Second -> "초봉 간격"
+    else -> "분봉 간격"
+}
+
+private val TimeframeUnit.intraday: Boolean get() = ordinal <= TimeframeUnit.Minute.ordinal
 
 private fun nextTick(random: Random, previous: Double, date: Long): ChartData {
     val close = (previous * (1.0 + random.nextDouble(-0.0006, 0.0006))).roundToLong().coerceAtLeast(1L).toDouble()
-    return ChartData(close, date, open = previous, high = maxOf(previous, close), low = minOf(previous, close), volume = random.nextDouble(1.0, 100.0))
+    return ChartData(close, date, open = previous, high = maxOf(previous, close), low = minOf(previous, close), volume = random.nextLong(1L, 100L).toDouble())
 }
 
 private fun tickHistory(random: Random, end: Long): List<ChartData> {
@@ -84,7 +102,7 @@ private fun dailySeries(random: Random, end: Long): List<ChartData> {
         val high = (maxOf(open, close) * (1.0 + random.nextDouble(0.0, 0.01))).roundToLong().toDouble()
         val low = (minOf(open, close) * (1.0 - random.nextDouble(0.0, 0.01))).roundToLong().toDouble()
         price = close
-        ChartData(close, end - (days - index) * DAY_MILLIS, open, high, low, random.nextDouble(1_000.0, 90_000.0))
+        ChartData(close, end - (days - index) * DAY_MILLIS, open, high, low, random.nextLong(1_000L, 90_000L).toDouble())
     }
 }
 
@@ -117,14 +135,19 @@ private fun Demo() {
     val now = remember { System.currentTimeMillis() }
     val daily = remember { dailySeries(random, now) }
     var ticks by remember { mutableStateOf(tickHistory(random, now)) }
-    var timeframe by remember { mutableStateOf(Timeframe.Minute1) }
+    var unit by rememberSaveable { mutableStateOf(TimeframeUnit.Minute) }
+    var counts by rememberSaveable {
+        mutableStateOf(mapOf(TimeframeUnit.Tick to 1, TimeframeUnit.Second to 1, TimeframeUnit.Minute to 5))
+    }
+    var sheetUnit by remember { mutableStateOf<TimeframeUnit?>(null) }
+    val timeframe = Timeframe(unit, counts[unit] ?: 1)
     var chartType by remember { mutableStateOf(ChartType.Candle) }
     var international by remember { mutableStateOf(false) }
     var items by remember { mutableStateOf(emptyList<ChartData>()) }
     val dark = isSystemInDarkTheme()
 
     LaunchedEffect(timeframe) {
-        if (timeframe.unit == TimeframeUnit.Tick || timeframe.unit == TimeframeUnit.Second || timeframe.unit == TimeframeUnit.Minute) {
+        if (timeframe.unit.intraday) {
             while (true) {
                 items = withContext(Dispatchers.Default) { ticks.aggregate(timeframe) }
                 delay(TICK_MILLIS)
@@ -162,8 +185,16 @@ private fun Demo() {
         Segmented(listOf("Candle" to ChartType.Candle, "Line" to ChartType.Line, "Area" to ChartType.Area), chartType) { chartType = it }
         Segmented(listOf("Korean" to false, "International" to true), international) { international = it }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Timeframes.forEach { (label, value) ->
-                FilterChip(selected = timeframe == value, onClick = { timeframe = value }, label = { Text(label) })
+            TimeframeUnit.entries.forEach { value ->
+                val count = counts[value]
+                FilterChip(
+                    selected = unit == value,
+                    onClick = {
+                        unit = value
+                        if (value.intraday) sheetUnit = value
+                    },
+                    label = { Text(if (count != null) "$count${value.label()} ▾" else value.label()) },
+                )
             }
         }
         LineChartPanel(
@@ -172,6 +203,40 @@ private fun Demo() {
             chartType = chartType,
             colors = colors,
             timeframe = timeframe,
+            priceFormatter = { String.format(Locale.ROOT, "%,.0f", it) },
         )
+    }
+
+    sheetUnit?.let { target ->
+        CountSheet(target, counts[target] ?: 1, onSelect = { counts = counts + (target to it) }, onDismiss = { sheetUnit = null })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CountSheet(unit: TimeframeUnit, selected: Int, onSelect: (Int) -> Unit, onDismiss: () -> Unit) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(unit.sheetTitle(), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 8.dp))
+            Counts.chunked(3).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { count ->
+                        val onClick = {
+                            onSelect(count)
+                            scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+                            Unit
+                        }
+                        val modifier = Modifier.weight(1f).height(56.dp)
+                        if (count == selected) {
+                            Button(onClick, modifier) { Text("$count${unit.label()}") }
+                        } else {
+                            FilledTonalButton(onClick, modifier) { Text("$count${unit.label()}") }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
