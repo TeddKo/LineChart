@@ -4,7 +4,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -45,14 +44,20 @@ internal fun DrawScope.drawOverlay(state: LineChartState, spec: ChartSpec, pulse
     val colors = spec.colors
     val style = spec.textStyle.copy(color = colors.text)
     val lineH = spec.measurer.measure("0", spec.textStyle).size.height.toFloat()
-    drawText(spec.measurer, header(spec, series, index), Offset(0f, 0f), style, softWrap = false, maxLines = 1)
+    if (spec.cachedSeries !== series || spec.cachedIndex != index) {
+        spec.cachedSeries = series
+        spec.cachedIndex = index
+        spec.header = header(spec, series, index)
+        spec.legend = legend(spec, series, index)
+    }
+    drawText(spec.measurer, spec.header, Offset(0f, 0f), style, softWrap = false, maxLines = 1)
     if (spec.maPeriods.isNotEmpty()) {
-        drawText(spec.measurer, legend(spec, state, index), Offset(0f, lineH), style, softWrap = false, maxLines = 1)
+        drawText(spec.measurer, spec.legend, Offset(0f, lineH), style, softWrap = false, maxLines = 1)
     }
     if (cross.isSpecified) {
         val x = xOf(index, n, scroll, main.width, slot)
         val y = cross.y.coerceIn(main.top, main.bottom)
-        val dash = PathEffect.dashPathEffect(floatArrayOf(4f * d, 4f * d))
+        val dash = spec.dash(d)
         drawLine(colors.crosshair, Offset(x, main.top), Offset(x, layout.timeAxis.top), d, pathEffect = dash)
         drawLine(colors.crosshair, Offset(0f, y), Offset(main.right, y), d, pathEffect = dash)
         val tagStyle = style.copy(color = colors.background)
@@ -104,9 +109,9 @@ private fun header(spec: ChartSpec, series: Series, i: Int): AnnotatedString {
     }
 }
 
-private fun legend(spec: ChartSpec, state: LineChartState, i: Int): AnnotatedString = buildAnnotatedString {
+private fun legend(spec: ChartSpec, series: Series, i: Int): AnnotatedString = buildAnnotatedString {
     spec.maPeriods.forEachIndexed { index, period ->
-        val value = sma(state.series.prefix, i, period)
+        val value = sma(series.prefix, i, period)
         withStyle(SpanStyle(color = spec.colors.maColor(index))) {
             append("${maLegend(period, spec.labels.unit)} ${if (value.isNaN()) "-" else spec.priceFormatter(value)}  ")
         }

@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -31,7 +32,7 @@ internal val ChartTextStyle = TextStyle(fontSize = 10.sp, fontFeatureSettings = 
 internal class Frame(val layout: PaneLayout, val range: YRange, val scroll: Float, val slot: Float)
 
 /**
- * Display configuration and reusable draw resources of one panel.
+ * Display configuration and reusable draw resources of one panel, including the header and legend text of the last drawn [cachedIndex] of [cachedSeries].
  */
 internal class ChartSpec(
     val type: ChartType,
@@ -45,7 +46,21 @@ internal class ChartSpec(
     val labels: ChartLabels,
 ) {
     val path: Path = Path()
+    var cachedSeries: Series? = null
+    var cachedIndex: Int = -1
+    var header: AnnotatedString = AnnotatedString("")
+    var legend: AnnotatedString = AnnotatedString("")
+    private var dashDensity = 0f
+    private var dashEffect: PathEffect? = null
     private val formats = HashMap<String, SimpleDateFormat>()
+
+    fun dash(density: Float): PathEffect {
+        if (dashEffect == null || dashDensity != density) {
+            dashDensity = density
+            dashEffect = PathEffect.dashPathEffect(floatArrayOf(4f * density, 4f * density))
+        }
+        return checkNotNull(dashEffect)
+    }
 
     fun time(pattern: String, millis: Long): String =
         formats.getOrPut(pattern) { SimpleDateFormat(pattern, Locale.ROOT) }.format(Date(millis))
@@ -240,7 +255,7 @@ private fun DrawScope.drawLastPrice(
     val last = items.lastIndex
     val color = spec.colors.forDirection(direction(items, last, spec.type))
     val y = yOf(items[last].cumulativeProfit, range, main.top, main.height).coerceIn(main.top, main.bottom)
-    drawLine(color, Offset(0f, y), Offset(main.right, y), density, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f * density, 4f * density)))
+    drawLine(color, Offset(0f, y), Offset(main.right, y), density, pathEffect = spec.dash(density))
     val text = spec.priceFormatter(items[last].cumulativeProfit)
     val tagH = lineH + 2f * density
     val top = (y - tagH / 2f).coerceIn(main.top, max(main.top, main.bottom - tagH))
