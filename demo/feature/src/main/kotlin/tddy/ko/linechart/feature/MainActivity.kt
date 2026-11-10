@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import tddy.ko.linechart.desigh_system.theme.LineChartTheme
+import tddy.ko.linechart.feature.market.MarketScreen
 import tddy.ko.linechart.ui.ChartData
 import tddy.ko.linechart.ui.LineChartPanel
 import tddy.ko.linechart.ui.Timeframe
@@ -124,7 +126,19 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun Screens(vm: DemoViewModel) {
     var settings by rememberSaveable { mutableStateOf(false) }
-    if (settings) SettingsScreen(vm, onBack = { settings = false }) else Demo(vm, onSettings = { settings = true })
+    var market by rememberSaveable { mutableStateOf(false) }
+    if (settings) {
+        SettingsScreen(vm, onBack = { settings = false })
+    } else {
+        Column(Modifier.statusBarsPadding()) {
+            Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { Segmented(listOf("차트" to false, "마켓" to true), market) { market = it } }
+            if (market) {
+                MarketScreen(vm.market, vm.prefs.colors(vm.prefs.theme.isDark()))
+            } else {
+                Demo(vm, onSettings = { settings = true })
+            }
+        }
+    }
 }
 
 @Composable
@@ -171,7 +185,7 @@ private fun Demo(vm: DemoViewModel, onSettings: () -> Unit) {
     }
 
     Column(
-        Modifier.statusBarsPadding().verticalScroll(rememberScrollState()).padding(16.dp),
+        Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
