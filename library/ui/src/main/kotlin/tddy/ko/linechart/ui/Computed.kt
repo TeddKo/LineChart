@@ -1,10 +1,14 @@
 package tddy.ko.linechart.ui
 
+import java.util.TimeZone
+
 /**
  * Marks of the indicators computed for [series] with [settings], the overlays and panes that need volume dropped when the series has none.
  *
  * @property scaleMarks marks of the overlays that take part in the main Y range
  * @property cache marks by indicator, reused while the series stays the same
+ * @property base value of the base line, the previous close or the first close standing in for it on the percent scale, NaN when there is none
+ * @property prevClose close of the previous session, NaN when there is none
  */
 internal class Computed(
     val series: Series,
@@ -14,11 +18,13 @@ internal class Computed(
     val panes: List<PaneIndicator>,
     val paneMarks: List<List<Mark>>,
     val cache: Map<Indicator, List<Mark>>,
+    val base: Double,
+    val prevClose: Double,
 ) {
     val scaleMarks: List<Mark> = overlays.indices.filter { overlays[it].inScale }.flatMap { overlayMarks[it] }
 
     companion object {
-        val Empty = Computed(Series(emptyList()), ChartSettings(), emptyList(), emptyList(), emptyList(), emptyList(), emptyMap())
+        val Empty = Computed(Series(emptyList()), ChartSettings(), emptyList(), emptyList(), emptyList(), emptyList(), emptyMap(), Double.NaN, Double.NaN)
     }
 }
 
@@ -41,5 +47,12 @@ internal fun computeIndicators(
     }
     val shownOverlays = overlays.filter { !it.needsVolume || series.hasVolume }
     val shownPanes = panes.filter { !it.needsVolume || series.hasVolume }
-    return Computed(series, settings, shownOverlays, shownOverlays.map(::marksOf), shownPanes, shownPanes.map(::marksOf), cache)
+    val zone = TimeZone.getDefault()
+    val percent = settings.scale == PriceScale.Percent
+    var base = baseValue(series, if (percent && settings.baseLine == BaseLine.None) BaseLine.PreviousClose else settings.baseLine, zone)
+    if (percent && !(base > 0.0)) base = series.items.firstOrNull()?.cumulativeProfit ?: Double.NaN
+    return Computed(
+        series, settings, shownOverlays, shownOverlays.map(::marksOf), shownPanes, shownPanes.map(::marksOf), cache,
+        base, previousClose(series, zone),
+    )
 }

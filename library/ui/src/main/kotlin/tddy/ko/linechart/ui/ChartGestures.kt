@@ -40,7 +40,7 @@ internal fun Modifier.chartGestures(state: LineChartState): Modifier = pointerIn
             val down = awaitFirstDown(requireUnconsumed = false)
             fling?.cancel()
             var kind = GestureKind.Undecided
-            val pending = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+            val pending = withTimeoutOrNull(if (state.computed.settings.crosshair) viewConfiguration.longPressTimeoutMillis else Long.MAX_VALUE) {
                 while (kind == GestureKind.Undecided) {
                     val event = awaitPointerEvent()
                     val pressed = event.changes.filter { it.pressed }

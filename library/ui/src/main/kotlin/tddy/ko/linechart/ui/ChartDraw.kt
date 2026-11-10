@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -37,6 +38,7 @@ internal class Frame(
     val scroll: Float,
     val slot: Float,
     val computed: Computed,
+    val plotLeft: Float,
 )
 
 /**
@@ -134,13 +136,34 @@ internal fun ChartSpec.tagLabel(series: Series, i: Int): String {
     return timeFormatter?.invoke(date) ?: time(tagPattern(timeframe, series.stepMs), date)
 }
 
-private fun ChartSpec.axisLabel(series: Series, i: Int): String {
+private fun ChartSpec.axisLabel(series: Series, i: Int, stride: Int): String {
     if (!series.timeAxis) return (i + 1).toString()
     val date = series.items[i].date
     timeFormatter?.let { return it(date) }
     val pattern = timePattern(timeframe, series.stepMs)
     val newDay = pattern.startsWith("HH") && i > 0 && time("yyyyMMdd", date) != time("yyyyMMdd", series.items[i - 1].date)
     return time(if (newDay) "MM/dd" else pattern, date)
+}
+
+/**
+ * Price text of the axis, tags and markers, a signed change percent against the base on the percent scale.
+ */
+internal fun ChartSpec.priceText(value: Double, computed: Computed): String =
+    if (computed.settings.scale == PriceScale.Percent && computed.base > 0.0) percentText(value, computed.base) else priceFormatter(value)
+
+private fun mainTicks(range: YRange, computed: Computed, target: Int): List<Double> = when (computed.settings.scale) {
+    PriceScale.Log -> if (range.log) logTicks(range.min, range.max, target) else niceTicks(range.min, range.max, target)
+    PriceScale.Percent -> percentTicks(range.min, range.max, computed.base, target)
+    PriceScale.Linear -> niceTicks(range.min, range.max, target)
+}
+
+/**
+ * Lines of the last price axis tag: the price, and the change percent against the base when a base exists and the scale is not already percent.
+ */
+private fun ChartSpec.lastPriceLines(value: Double, computed: Computed): List<String> {
+    val lines = arrayListOf(priceText(value, computed))
+    if (computed.settings.scale != PriceScale.Percent && computed.base > 0.0) lines += percentText(value, computed.base)
+    return lines
 }
 
 private const val PANE_TICK_TARGET = 3
@@ -157,65 +180,90 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     val items = series.items
     val n = items.size
     val computed = state.computed
+    val settings = computed.settings
     val style = spec.textStyle.copy(color = colors.text)
     val lineH = spec.measurer.measure("0", spec.textStyle).size.height.toFloat()
-    val headerH = (1 + computed.overlays.size) * lineH + 6f * d
+    val headerH = (if (settings.legend) 1 + computed.overlays.size else 0) * lineH + 6f * d
     val timeH = lineH + 4f * d
     if (n < 2) {
         state.plot = Rect.Zero
         state.frame = null
         return
     }
+    val log = settings.scale == PriceScale.Log
     val guessW = size.width - if (state.axisW > 0f) state.axisW else 48f * d
     val guessView = state.view(guessW)
-    val guessRange = visibleYRange(items, guessView.visible, spec.type, computed.scaleMarks)
-    var labelW = (niceTicks(guessRange.min, guessRange.max, state.yAxisTicksCount) + items.last().cumulativeProfit)
-        .maxOf { spec.measurer.measure(spec.priceFormatter(it), style).size.width }
+    val guessRange = visibleYRange(items, guessView.visible, spec.type, computed.scaleMarks, log)
+    val lastClose = items.last().cumulativeProfit
+    var labelW = (mainTicks(guessRange, computed, state.yAxisTicksCount) + lastClose)
+        .maxOf { spec.measurer.measure(spec.priceText(it, computed), style).size.width }
+    for (line in spec.lastPriceLines(lastClose, computed)) labelW = max(labelW, spec.measurer.measure(line, style).size.width)
     computed.panes.forEachIndexed { k, pane ->
         val range = paneYRange(computed.paneMarks[k], guessView.visible, pane.scale, pane.levels)
         for (tick in paneTicks(pane, range)) labelW = max(labelW, spec.measurer.measure(pane.format(tick), style).size.width)
     }
     state.axisW = axisWidth(labelW.toFloat(), d)
+    val axisLeft = settings.axisSide == AxisSide.Left
     val layout = paneLayout(
         size.width, size.height, headerH, timeH, state.axisW, 4f * d,
-        spec.paneHeight.toPx(), computed.panes.map { it.weight }, false,
+        spec.paneHeight.toPx(), computed.panes.map { it.weight }, axisLeft,
     )
     val main = layout.main
-    state.plot = main
+    val plotLeft = if (axisLeft) state.axisW else 0f
+    state.plot = main.translate(plotLeft, 0f)
     val view = state.view(main.width)
     if (main.width <= 0f || view.visible.isEmpty()) {
         state.frame = null
         return
     }
-    val range = visibleYRange(items, view.visible, spec.type, computed.scaleMarks)
+    val range = visibleYRange(items, view.visible, spec.type, computed.scaleMarks, log)
     val paneRanges = computed.panes.mapIndexed { k, pane ->
         paneYRange(computed.paneMarks[k], view.visible, pane.scale, pane.levels)
     }
-    state.frame = Frame(layout, range, paneRanges, view.scroll, view.slot, computed)
+    val frame = Frame(layout, range, paneRanges, view.scroll, view.slot, computed, plotLeft)
+    state.frame = frame
+    translate(plotLeft, 0f) { drawPlot(state, spec, frame, view, lineH, style) }
+}
 
-    for (tick in niceTicks(range.min, range.max, state.yAxisTicksCount)) {
+private fun DrawScope.drawPlot(state: LineChartState, spec: ChartSpec, frame: Frame, view: View, lineH: Float, style: TextStyle) {
+    val d = density
+    val colors = spec.colors
+    val series = state.series
+    val items = series.items
+    val computed = frame.computed
+    val settings = computed.settings
+    val layout = frame.layout
+    val main = layout.main
+    val range = frame.range
+    val gridHorizontal = settings.grid == GridLines.Horizontal || settings.grid == GridLines.Both
+    val gridVertical = settings.grid == GridLines.Vertical || settings.grid == GridLines.Both
+    val labelX = layout.axis.left + 4f * d
+
+    for (tick in mainTicks(range, computed, state.yAxisTicksCount)) {
         val y = yOf(tick, range, main.top, main.height)
-        drawLine(colors.grid, Offset(0f, y), Offset(main.right, y), d)
-        drawText(spec.measurer, spec.priceFormatter(tick), Offset(main.right + 4f * d, y - lineH / 2f), style)
+        if (gridHorizontal) drawLine(colors.grid, Offset(0f, y), Offset(main.right, y), d)
+        drawText(spec.measurer, spec.priceText(tick, computed), Offset(labelX, y - lineH / 2f), style)
     }
     computed.panes.forEachIndexed { k, pane ->
         val rect = layout.panes[k]
-        for (tick in paneTicks(pane, paneRanges[k])) {
-            val y = yOf(tick, paneRanges[k], rect.top, rect.height)
-            if (pane.levels.isEmpty()) drawLine(colors.grid, Offset(0f, y), Offset(rect.right, y), d)
+        for (tick in paneTicks(pane, frame.paneRanges[k])) {
+            val y = yOf(tick, frame.paneRanges[k], rect.top, rect.height)
+            if (pane.levels.isEmpty() && gridHorizontal) drawLine(colors.grid, Offset(0f, y), Offset(rect.right, y), d)
             val top = (y - lineH / 2f).coerceIn(rect.top, max(rect.top, rect.bottom - lineH))
-            drawText(spec.measurer, pane.format(tick), Offset(rect.right + 4f * d, top), style)
+            drawText(spec.measurer, pane.format(tick), Offset(labelX, top), style)
         }
     }
 
-    val widest = spec.axisLabel(series, n - 1)
+    val widest = spec.axisLabel(series, items.lastIndex, 1)
     val labelWidth = spec.measurer.measure(widest, style).size.width
     val stride = labelStride(view.slot, labelWidth + 8f * d)
+    val gridBottom = layout.panes.lastOrNull()?.bottom ?: main.bottom
     for (i in view.visible) {
         if (i % stride != 0) continue
         val x = xOf(i, state.slotCount, view.scroll, main.width, view.slot)
         if (x < 0f || x > main.right) continue
-        val text = spec.axisLabel(series, i)
+        if (gridVertical) drawLine(colors.grid, Offset(x, main.top), Offset(x, gridBottom), d)
+        val text = spec.axisLabel(series, i, stride)
         val w = spec.measurer.measure(text, style).size.width
         drawText(spec.measurer, text, Offset((x - w / 2f).coerceIn(0f, max(0f, main.right - w)), layout.timeAxis.top + 2f * d), style)
     }
@@ -223,7 +271,7 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     clipRect(0f, 0f, main.width * state.entry.value, size.height) {
         computed.panes.forEachIndexed { k, pane ->
             val rect = layout.panes[k]
-            val context = PaneContext(rect, paneRanges[k], view, state.slotCount, series)
+            val context = PaneContext(rect, frame.paneRanges[k], view, state.slotCount, series)
             clipRect(rect.left, rect.top, rect.right, rect.bottom) {
                 drawLevels(pane.levels, spec, context)
                 for (mark in computed.paneMarks[k]) drawMark(mark, spec, context)
@@ -233,10 +281,34 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
             if (spec.type == ChartType.Candle) drawCandles(state, spec, view, range, main) else drawSeries(state, spec, view, range, main)
             val context = PaneContext(main, range, view, state.slotCount, series)
             for (marks in computed.overlayMarks) for (mark in marks) drawMark(mark, spec, context)
+            drawReferences(spec, frame, lineH, style)
         }
     }
-    drawLastPrice(state, spec, range, layout, lineH, style)
-    drawExtremes(state, spec, view, range, main, lineH, style)
+    if (settings.currentPrice) drawLastPrice(state, spec, frame, lineH, style)
+    if (settings.highLowMarkers) drawExtremes(state, spec, view, frame, lineH, style)
+}
+
+/**
+ * Dashed base line and price limit lines that fall inside the main pane, each labeled on the axis column.
+ */
+private fun DrawScope.drawReferences(spec: ChartSpec, frame: Frame, lineH: Float, style: TextStyle) {
+    val computed = frame.computed
+    val settings = computed.settings
+    val main = frame.layout.main
+    val references = ArrayList<Pair<Double, Color>>(3)
+    if (settings.baseLine != BaseLine.None && !computed.base.isNaN()) references += computed.base to spec.colors.text
+    if (settings.priceLimits && !computed.prevClose.isNaN()) {
+        val (upper, lower) = limitLines(computed.prevClose, settings.limitPercent)
+        references += upper to spec.colors.up
+        references += lower to spec.colors.down
+    }
+    for ((value, color) in references) {
+        val y = yOf(value, frame.range, main.top, main.height)
+        if (y !in main.top..main.bottom) continue
+        drawLine(color, Offset(0f, y), Offset(main.right, y), density, pathEffect = spec.dash(density))
+        val top = (y - lineH / 2f).coerceIn(main.top, max(main.top, main.bottom - lineH))
+        drawText(spec.measurer, spec.priceText(value, computed), Offset(frame.layout.axis.left + 4f * density, top), style.copy(color = color))
+    }
 }
 
 private fun DrawScope.drawCandles(state: LineChartState, spec: ChartSpec, view: View, range: YRange, main: Rect) {
@@ -258,45 +330,34 @@ private fun DrawScope.drawCandles(state: LineChartState, spec: ChartSpec, view: 
     }
 }
 
-private fun DrawScope.drawLastPrice(
-    state: LineChartState,
-    spec: ChartSpec,
-    range: YRange,
-    layout: PaneLayout,
-    lineH: Float,
-    style: TextStyle,
-) {
+private fun DrawScope.drawLastPrice(state: LineChartState, spec: ChartSpec, frame: Frame, lineH: Float, style: TextStyle) {
     val items = state.items
+    val layout = frame.layout
     val main = layout.main
     val last = items.lastIndex
     val color = spec.colors.forDirection(direction(items, last, spec.type))
-    val y = yOf(items[last].cumulativeProfit, range, main.top, main.height).coerceIn(main.top, main.bottom)
+    val y = yOf(items[last].cumulativeProfit, frame.range, main.top, main.height).coerceIn(main.top, main.bottom)
     drawLine(color, Offset(0f, y), Offset(main.right, y), density, pathEffect = spec.dash(density))
-    val text = spec.priceFormatter(items[last].cumulativeProfit)
-    val tagH = lineH + 2f * density
+    val lines = spec.lastPriceLines(items[last].cumulativeProfit, frame.computed)
+    val tagH = lines.size * lineH + 2f * density
     val top = (y - tagH / 2f).coerceIn(main.top, max(main.top, main.bottom - tagH))
     drawRect(color, Offset(layout.axis.left, top), Size(layout.axis.width, tagH))
-    drawText(spec.measurer, text, Offset(layout.axis.left + 4f * density, top + density), style.copy(color = spec.colors.background))
+    lines.forEachIndexed { k, line ->
+        drawText(spec.measurer, line, Offset(layout.axis.left + 4f * density, top + density + k * lineH), style.copy(color = spec.colors.background))
+    }
 }
 
-private fun DrawScope.drawExtremes(
-    state: LineChartState,
-    spec: ChartSpec,
-    view: View,
-    range: YRange,
-    main: Rect,
-    lineH: Float,
-    style: TextStyle,
-) {
+private fun DrawScope.drawExtremes(state: LineChartState, spec: ChartSpec, view: View, frame: Frame, lineH: Float, style: TextStyle) {
     val items = state.items
+    val main = frame.layout.main
     val (high, low) = extremeIndices(items, view.visible, spec.type)
     val candle = spec.type == ChartType.Candle
     for ((i, isHigh) in listOf(high to true, low to false)) {
         val value = if (candle) (if (isHigh) items[i].high else items[i].low) else items[i].cumulativeProfit
-        val text = spec.priceFormatter(value)
+        val text = spec.priceText(value, frame.computed)
         val width = spec.measurer.measure(text, style).size.width
         val x = (xOf(i, state.slotCount, view.scroll, main.width, view.slot) - width / 2f).coerceIn(0f, max(0f, main.right - width))
-        val y = yOf(value, range, main.top, main.height)
+        val y = yOf(value, frame.range, main.top, main.height)
         val top = if (isHigh) (y - lineH - 2f * density).coerceAtLeast(main.top) else (y + 2f * density).coerceAtMost(main.bottom - lineH)
         drawText(spec.measurer, text, Offset(x, top), style)
     }

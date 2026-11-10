@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -30,10 +31,14 @@ internal fun maLegend(period: Int, unit: String): String = "MA$period$unit"
 
 internal fun DrawScope.drawOverlay(state: LineChartState, spec: ChartSpec, pulse: Float?) {
     val frame = state.frame ?: return
+    if (state.series.items.size < 2) return
+    translate(frame.plotLeft, 0f) { drawOverlayPlot(state, spec, pulse, frame) }
+}
+
+private fun DrawScope.drawOverlayPlot(state: LineChartState, spec: ChartSpec, pulse: Float?, frame: Frame) {
     val series = state.series
     val items = series.items
     val n = items.size
-    if (n < 2) return
     val d = density
     val layout = frame.layout
     val computed = frame.computed
@@ -41,7 +46,7 @@ internal fun DrawScope.drawOverlay(state: LineChartState, spec: ChartSpec, pulse
     val slot = state.slotFor(main.width)
     val slots = state.slotCount
     val scroll = clampScroll(state.scroll, slots, main.width, slot)
-    val cross = state.crosshair
+    val cross = state.crosshair.let { if (it.isSpecified) Offset(it.x - frame.plotLeft, it.y) else it }
     val index = if (cross.isSpecified) indexAt(cross.x, slots, scroll, main.width, slot, n) else n - 1
     val colors = spec.colors
     val style = spec.textStyle.copy(color = colors.text)
@@ -54,12 +59,14 @@ internal fun DrawScope.drawOverlay(state: LineChartState, spec: ChartSpec, pulse
         spec.overlayLegends = computed.overlays.mapIndexed { k, overlay -> overlay.legend(spec, series, computed.overlayMarks[k], index) }
         spec.paneLegends = computed.panes.mapIndexed { k, pane -> pane.legend(spec, series, computed.paneMarks[k], index) }
     }
-    drawText(spec.measurer, spec.header, Offset(0f, 0f), style, softWrap = false, maxLines = 1)
-    spec.overlayLegends.forEachIndexed { k, legend ->
-        drawText(spec.measurer, legend, Offset(0f, (k + 1) * lineH), style, softWrap = false, maxLines = 1)
-    }
-    spec.paneLegends.forEachIndexed { k, legend ->
-        drawText(spec.measurer, legend, Offset(0f, layout.panes[k].top), style, softWrap = false, maxLines = 1)
+    if (computed.settings.legend) {
+        drawText(spec.measurer, spec.header, Offset(0f, 0f), style, softWrap = false, maxLines = 1)
+        spec.overlayLegends.forEachIndexed { k, legend ->
+            drawText(spec.measurer, legend, Offset(0f, (k + 1) * lineH), style, softWrap = false, maxLines = 1)
+        }
+        spec.paneLegends.forEachIndexed { k, legend ->
+            drawText(spec.measurer, legend, Offset(0f, layout.panes[k].top), style, softWrap = false, maxLines = 1)
+        }
     }
     if (cross.isSpecified) {
         val x = xOf(index, slots, scroll, main.width, slot)
@@ -72,7 +79,7 @@ internal fun DrawScope.drawOverlay(state: LineChartState, spec: ChartSpec, pulse
         drawLine(colors.crosshair, Offset(0f, y), Offset(main.right, y), d, pathEffect = dash)
         val tagStyle = style.copy(color = colors.background)
         val value = valueAt(y, range, rect.top, rect.height)
-        val price = if (paneIndex >= 0) computed.panes[paneIndex].format(value) else spec.priceFormatter(value)
+        val price = if (paneIndex >= 0) computed.panes[paneIndex].format(value) else spec.priceText(value, computed)
         val priceH = lineH + 2f * d
         val priceTop = (y - priceH / 2f).coerceIn(rect.top, max(rect.top, rect.bottom - priceH))
         drawRect(colors.crosshair, Offset(layout.axis.left, priceTop), Size(layout.axis.width, priceH))

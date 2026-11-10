@@ -6,11 +6,13 @@ package tddy.ko.linechart.ui
  * @property timeAxis whether the dates are strictly increasing
  * @property stepMs smallest positive date step, 0 without a time axis
  * @property hasVolume whether any item carries a volume
+ * @property intraday whether the step is shorter than a day, with margin for daylight saving days
  */
 internal class Series(val items: List<ChartData>) {
     val timeAxis: Boolean
     val stepMs: Long
     val hasVolume: Boolean = items.any { it.volume > 0.0 }
+    val intraday: Boolean get() = timeAxis && stepMs < INTRADAY_MAX_STEP_MS
     val close: DoubleArray by lazy { DoubleArray(items.size) { items[it].cumulativeProfit } }
     val high: DoubleArray by lazy { DoubleArray(items.size) { items[it].high } }
     val low: DoubleArray by lazy { DoubleArray(items.size) { items[it].low } }
@@ -32,3 +34,5 @@ internal class Series(val items: List<ChartData>) {
         stepMs = if (timeAxis) step else 0L
     }
 }
+
+private const val INTRADAY_MAX_STEP_MS = 20 * 3_600_000L

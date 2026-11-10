@@ -41,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.first
 
@@ -80,6 +81,7 @@ private fun ChartBody(
     textStyle: TextStyle,
 ) {
     val measurer = rememberTextMeasurer(TEXT_CACHE_SIZE)
+    val scaledStyle = if (settings.fontScale == 1f || !textStyle.fontSize.isSpecified) textStyle else textStyle.copy(fontSize = textStyle.fontSize * settings.fontScale)
     val labels = ChartLabels(
         stringResource(R.string.linechart_open),
         stringResource(R.string.linechart_high),
@@ -88,8 +90,8 @@ private fun ChartBody(
         stringResource(R.string.linechart_volume),
         timeframe?.let { stringResource(it.unit.labelRes()) }.orEmpty(),
     )
-    val spec = remember(chartType, colors, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels, paneHeight) {
-        ChartSpec(chartType, colors, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels, paneHeight)
+    val spec = remember(chartType, colors, timeframe, priceFormatter, timeFormatter, scaledStyle, measurer, labels, paneHeight) {
+        ChartSpec(chartType, colors, timeframe, priceFormatter, timeFormatter, scaledStyle, measurer, labels, paneHeight)
     }
     val pulse = if (chartType == ChartType.Candle) {
         null
