@@ -49,7 +49,7 @@ public class Timeframe(public val unit: TimeframeUnit, public val count: Int = 1
 /**
  * Groups items in time order into candles of [timeframe] with open of the first item, high and low extremes, close of the last item and summed volume.
  *
- * The candle date is the bucket start in [timeZone], and for Tick the date of the last item of each group of [Timeframe.count] items.
+ * The candle date is the bucket start in [timeZone], and for Tick the date of the first item of each group of [Timeframe.count] items.
  * Aggregating the full list on every update suits modest histories, while apps with large histories keep the aggregated history and re-aggregate only the last bucket.
  */
 public fun List<ChartData>.aggregate(
@@ -64,7 +64,7 @@ public fun List<ChartData>.aggregate(
     for (i in 1..size) {
         val key = if (i < size) bucketKey(this[i], i, timeframe, timeZone, calendar) else Long.MIN_VALUE
         if (i == size || key != groupKey) {
-            result += merge(groupStart, i, if (timeframe.unit == TimeframeUnit.Tick) this[i - 1].date else groupKey)
+            result += merge(groupStart, i, if (timeframe.unit == TimeframeUnit.Tick) this[groupStart].date else groupKey)
             groupStart = i
             groupKey = key
         }
@@ -94,9 +94,13 @@ private fun bucketKey(item: ChartData, index: Int, timeframe: Timeframe, timeZon
         else -> calendarBucket(item.date, timeframe.unit, calendar)
     }
 
+private const val DAY_MILLIS = 86_400_000L
+
 private fun floorLocal(date: Long, unitMillis: Long, timeZone: TimeZone): Long {
     val offset = timeZone.getOffset(date)
-    return Math.floorDiv(date + offset, unitMillis) * unitMillis - offset
+    val local = date + offset
+    val dayStart = Math.floorDiv(local, DAY_MILLIS) * DAY_MILLIS
+    return dayStart + Math.floorDiv(local - dayStart, unitMillis) * unitMillis - offset
 }
 
 private fun calendarBucket(date: Long, unit: TimeframeUnit, calendar: Calendar): Long {

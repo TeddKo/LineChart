@@ -131,15 +131,45 @@ class TimeframeTest {
     }
 
     @Test
-    fun tick_groupsConsecutiveItemsAndKeepsLastDate() {
+    fun tick_groupsConsecutiveItemsAndUsesTheFirstDate() {
         val items = (1..7).map { tick(it * 1000L, close = it.toDouble(), volume = 1.0) }
         val result = items.aggregate(Timeframe(TimeframeUnit.Tick, 3), seoul)
-        assertEquals(listOf(3000L, 6000L, 7000L), result.map { it.date })
+        assertEquals(listOf(1000L, 4000L, 7000L), result.map { it.date })
         assertEquals(listOf(3.0, 6.0, 7.0), result.map { it.cumulativeProfit })
         assertEquals(listOf(1.0, 4.0, 7.0), result.map { it.open })
         assertEquals(listOf(3.0, 6.0, 7.0), result.map { it.high })
         assertEquals(listOf(1.0, 4.0, 7.0), result.map { it.low })
         assertEquals(listOf(3.0, 3.0, 1.0), result.map { it.volume })
         assertEquals(items, items.aggregate(Timeframe.Tick, seoul))
+    }
+
+    @Test
+    fun tick_keepsTheGroupDateWhenItemsAreAppended() {
+        val items = (1..7).map { tick(it * 1000L, close = it.toDouble()) }
+        val before = items.take(5).aggregate(Timeframe(TimeframeUnit.Tick, 3), seoul)
+        val after = items.aggregate(Timeframe(TimeframeUnit.Tick, 3), seoul)
+        assertEquals(before.first().date, after.first().date)
+        assertEquals(before[1].date, after[1].date)
+    }
+
+    @Test
+    fun minute7_alignsPerDayAroundMidnight() {
+        val items = listOf(
+            tick(ts(seoul, 2026, 11, 10, 23, 54, 0), 1.0),
+            tick(ts(seoul, 2026, 11, 10, 23, 59, 0), 2.0),
+            tick(ts(seoul, 2026, 11, 11, 0, 0, 0), 3.0),
+            tick(ts(seoul, 2026, 11, 11, 0, 6, 59), 4.0),
+            tick(ts(seoul, 2026, 11, 11, 0, 7, 0), 5.0),
+        )
+        val result = items.aggregate(Timeframe(TimeframeUnit.Minute, 7), seoul)
+        assertEquals(
+            listOf(
+                ts(seoul, 2026, 11, 10, 23, 48, 0),
+                ts(seoul, 2026, 11, 10, 23, 55, 0),
+                ts(seoul, 2026, 11, 11, 0, 0, 0),
+                ts(seoul, 2026, 11, 11, 0, 7, 0),
+            ),
+            result.map { it.date },
+        )
     }
 }
