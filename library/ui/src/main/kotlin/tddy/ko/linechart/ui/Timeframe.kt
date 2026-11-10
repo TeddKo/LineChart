@@ -111,7 +111,8 @@ private fun floorLocal(date: Long, unitMillis: Long, timeZone: TimeZone): Long {
     val offset = timeZone.getOffset(date)
     val local = date + offset
     val dayStart = Math.floorDiv(local, DAY_MILLIS) * DAY_MILLIS
-    return dayStart + Math.floorDiv(local - dayStart, unitMillis) * unitMillis - offset
+    val start = dayStart + Math.floorDiv(local - dayStart, unitMillis) * unitMillis
+    return start - timeZone.getOffset(start - offset)
 }
 
 private fun calendarBucket(date: Long, unit: TimeframeUnit, calendar: Calendar): Long {

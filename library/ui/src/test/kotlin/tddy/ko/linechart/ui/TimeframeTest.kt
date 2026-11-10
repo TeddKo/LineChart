@@ -185,4 +185,17 @@ class TimeframeTest {
             items.aggregate(Timeframe.Minute240, seoul).map { it.date },
         )
     }
+
+    @Test
+    fun minute240_keepsOneBucketAcrossSpringForwardDst() {
+        val berlin = TimeZone.getTimeZone("Europe/Berlin")
+        val items = listOf(
+            tick(ts(berlin, 2026, 3, 29, 1, 30, 0), 10.0),
+            tick(ts(berlin, 2026, 3, 29, 3, 30, 0), 11.0),
+        )
+        assertEquals(
+            listOf(ts(berlin, 2026, 3, 29, 0)),
+            items.aggregate(Timeframe.Minute240, berlin).map { it.date },
+        )
+    }
 }
