@@ -172,4 +172,17 @@ class TimeframeTest {
             result.map { it.date },
         )
     }
+
+    @Test
+    fun minute240_alignsToLocalMidnight() {
+        val items = listOf(
+            tick(ts(seoul, 2026, 11, 10, 3, 59, 59), 10.0),
+            tick(ts(seoul, 2026, 11, 10, 4, 0, 0), 11.0),
+            tick(ts(seoul, 2026, 11, 10, 7, 30, 0), 12.0),
+        )
+        assertEquals(
+            listOf(ts(seoul, 2026, 11, 10, 0), ts(seoul, 2026, 11, 10, 4)),
+            items.aggregate(Timeframe.Minute240, seoul).map { it.date },
+        )
+    }
 }

@@ -39,6 +39,17 @@ public class Timeframe(public val unit: TimeframeUnit, public val count: Int = 1
         public val Minute15: Timeframe = Timeframe(TimeframeUnit.Minute, 15)
         public val Minute30: Timeframe = Timeframe(TimeframeUnit.Minute, 30)
         public val Minute60: Timeframe = Timeframe(TimeframeUnit.Minute, 60)
+
+        /**
+         * Two-hour candle.
+         */
+        public val Minute120: Timeframe = Timeframe(TimeframeUnit.Minute, 120)
+
+        /**
+         * Four-hour candle.
+         */
+        public val Minute240: Timeframe = Timeframe(TimeframeUnit.Minute, 240)
+
         public val Day: Timeframe = Timeframe(TimeframeUnit.Day)
         public val Week: Timeframe = Timeframe(TimeframeUnit.Week)
         public val Month: Timeframe = Timeframe(TimeframeUnit.Month)
