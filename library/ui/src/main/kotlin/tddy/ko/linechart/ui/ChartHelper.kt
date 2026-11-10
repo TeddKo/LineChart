@@ -29,11 +29,32 @@ import kotlin.math.abs
 public val CHART_DATA_POINT_UNSPECIFIED: ChartDataPoint = ChartDataPoint(Long.MIN_VALUE, true)
 public val DRAG_SELECTION_NONE: DragSelection = DragSelection(Offset.Zero, CHART_DATA_POINT_UNSPECIFIED)
 
+/**
+ * Single sample of the chart, the line value being [cumulativeProfit] as the candle close.
+ *
+ * @property cumulativeProfit line value and candle close
+ * @property date epoch millis, identity key of the sample
+ * @property open candle open, defaulting to the close
+ * @property high candle high, defaulting to the larger of open and close
+ * @property low candle low, defaulting to the smaller of open and close
+ * @property volume traded volume, 0 when absent
+ */
 @Stable
 public data class ChartData(
     public val cumulativeProfit: Double,
-    public val date: Long
-)
+    public val date: Long,
+    public val open: Double = cumulativeProfit,
+    public val high: Double = maxOf(open, cumulativeProfit),
+    public val low: Double = minOf(open, cumulativeProfit),
+    public val volume: Double = 0.0,
+) {
+    @Deprecated("Binary compatibility", level = DeprecationLevel.HIDDEN)
+    public constructor(cumulativeProfit: Double, date: Long) : this(cumulativeProfit, date, cumulativeProfit)
+
+    @Deprecated("Binary compatibility", level = DeprecationLevel.HIDDEN)
+    public fun copy(cumulativeProfit: Double = this.cumulativeProfit, date: Long = this.date): ChartData =
+        copy(cumulativeProfit = cumulativeProfit, date = date, open = open)
+}
 
 @Stable
 public data class ChartDataPoint(
