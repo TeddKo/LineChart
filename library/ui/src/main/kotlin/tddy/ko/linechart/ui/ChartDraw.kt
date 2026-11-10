@@ -125,7 +125,7 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     }
     val guessW = size.width - if (state.axisW > 0f) state.axisW else 48f * d
     val guessRange = visibleYRange(items, state.view(guessW).visible, spec.type)
-    val labelW = niceTicks(guessRange.min, guessRange.max, state.yAxisTicksCount)
+    val labelW = (niceTicks(guessRange.min, guessRange.max, state.yAxisTicksCount) + items.last().cumulativeProfit)
         .maxOf { spec.measurer.measure(spec.priceFormatter(it), style).size.width }
     state.axisW = axisWidth(labelW.toFloat(), d)
     val layout = paneLayout(size.width, size.height, headerH, timeH, state.axisW, 4f * d, series.hasVolume)
