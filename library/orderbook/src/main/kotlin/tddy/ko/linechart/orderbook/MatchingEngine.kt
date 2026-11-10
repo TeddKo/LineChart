@@ -14,6 +14,7 @@ public class MatchingEngine(
     private val nextId: () -> Long = counter(),
 ) {
     private val books = HashMap<String, OrderBook>()
+    private val byId = HashMap<Long, Resting>()
 
     /**
      * Places an order. A rejected order consumes no id and returns a null [OrderResult.orderId].
@@ -33,10 +34,8 @@ public class MatchingEngine(
         val now = clock()
         if (quantity <= 0) return rejected(RejectReason.InvalidQuantity)
         if (type == OrderType.Limit) {
-            if (price == null || price < policy.minPrice || price % policy.tickSize != 0L) {
-                return rejected(RejectReason.InvalidPrice)
-            }
-            if (expiresAt <= now) return rejected(RejectReason.InvalidExpiry)
+            val invalid = if (price == null) RejectReason.InvalidPrice else validateLimit(price, expiresAt, now)
+            if (invalid != null) return rejected(invalid)
         }
         val book = books.getOrPut(option) { OrderBook(option) }
         if (type == OrderType.Limit && !policy.allowCrossing && price != null && crosses(book, side, price)) {
@@ -45,9 +44,43 @@ public class MatchingEngine(
         return match(book, side, type, quantity, price, expiresAt, owner, now)
     }
 
+    /** Removes an open order and returns it, null when unknown. */
+    public fun cancel(orderId: Long): Order? {
+        val resting = byId.remove(orderId) ?: return null
+        books[resting.option]?.remove(resting)
+        return resting.toOrder()
+    }
+
+    /**
+     * Replaces [price] and [expiresAt] of an open order, null keeps the current value.
+     *
+     * Cancel and replace with the same id and the remaining quantity: the order loses time priority and may
+     * match. A rejected modify keeps the original order untouched.
+     */
+    public fun modify(orderId: Long, price: Long? = null, expiresAt: Long? = null): OrderResult {
+        val now = clock()
+        val resting = byId[orderId] ?: return rejected(RejectReason.NotFound)
+        val newPrice = price ?: resting.price
+        val newExpiry = expiresAt ?: resting.expiresAt
+        val book = books.getValue(resting.option)
+        validateLimit(newPrice, newExpiry, now)?.let { return rejected(it) }
+        if (!policy.allowCrossing && crosses(book, resting.side, newPrice)) return rejected(RejectReason.Crossing)
+        cancel(orderId)
+        return match(book, resting.side, OrderType.Limit, resting.remaining, newPrice, newExpiry, resting.owner, now, orderId)
+    }
+
+    /** Open order by id, null when unknown or fully filled. */
+    public fun order(orderId: Long): Order? = byId[orderId]?.toOrder()
+
     /** Aggregated book of [option] limited to [depth] levels per side. */
     public fun snapshot(option: String, depth: Int = Int.MAX_VALUE): BookSnapshot =
         books[option]?.snapshot(depth) ?: BookSnapshot(option, emptyList(), emptyList())
+
+    private fun validateLimit(price: Long, expiresAt: Long, now: Long): RejectReason? = when {
+        price < policy.minPrice || price % policy.tickSize != 0L -> RejectReason.InvalidPrice
+        expiresAt <= now -> RejectReason.InvalidExpiry
+        else -> null
+    }
 
     private fun crosses(book: OrderBook, side: Side, price: Long): Boolean {
         val best = book.best(side.opposite())?.price ?: return false
@@ -63,8 +96,9 @@ public class MatchingEngine(
         expiresAt: Long,
         owner: String?,
         now: Long,
+        existingId: Long? = null,
     ): OrderResult {
-        var orderId: Long? = null
+        var orderId: Long? = existingId
         var remaining = quantity
         var reason: RejectReason? = null
         val fills = ArrayList<Trade>()
@@ -92,13 +126,18 @@ public class MatchingEngine(
                 sellerFee = feePolicy.fee(Side.Sell, maker.price, taken),
             )
             maker.remaining -= taken
-            if (maker.remaining == 0) book.remove(maker)
+            if (maker.remaining == 0) {
+                book.remove(maker)
+                byId.remove(maker.id)
+            }
             remaining -= taken
         }
         if (remaining == 0) return OrderResult(orderId, fills, 0, 0, null)
         if (type == OrderType.Limit && reason == null && price != null) {
             val id = orderId ?: nextId().also { orderId = it }
-            book.add(Resting(id, book.option, side, price, remaining, now, expiresAt, owner))
+            val resting = Resting(id, book.option, side, price, remaining, now, expiresAt, owner)
+            book.add(resting)
+            byId[id] = resting
             return OrderResult(id, fills, remaining, 0, null)
         }
         return OrderResult(orderId, fills, 0, remaining, reason ?: RejectReason.NoLiquidity)
