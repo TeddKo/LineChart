@@ -204,4 +204,28 @@ class LineChartStateTest {
         assertEquals(listOf(1.0, 2.5), legacy.items.map { it.cumulativeProfit })
         assertEquals("1", legacy.formatValue(10_000L))
     }
+
+    @Test
+    fun slotCount_addsThePadToTheItemCount() {
+        val state = selectable(1.0, 2.0, 3.0)
+        assertEquals(3, state.slotCount)
+        state.pad = 4
+        assertEquals(7, state.slotCount)
+    }
+
+    @Test
+    fun selectedBy_withPadNeverExceedsTheLastItem() {
+        val state = selectable(1.0, 2.0, 3.0)
+        state.pad = 3
+        assertEquals(2, state.selectedBy(Offset(99f, 10f)).index)
+    }
+
+    @Test
+    fun transform_withPadAllowsScrollingToTheFirstPadSlot() {
+        val state = selectable(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0)
+        state.slot = 10f
+        state.pad = 5
+        state.transform(50f, 1f, 100_000f)
+        assertEquals(15f, state.scroll, 0.0001f)
+    }
 }

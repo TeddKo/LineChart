@@ -112,8 +112,8 @@ private class View(val scroll: Float, val slot: Float, val visible: IntRange)
 
 private fun LineChartState.view(plotW: Float): View {
     val slot = slotFor(plotW)
-    val scroll = clampScroll(scroll, itemCount, plotW, slot)
-    return View(scroll, slot, visibleRange(itemCount, scroll, plotW, slot))
+    val scroll = clampScroll(scroll, slotCount, plotW, slot)
+    return View(scroll, slot, visibleRange(slotCount, scroll, plotW, slot, itemCount))
 }
 
 internal fun ChartSpec.tagLabel(series: Series, i: Int): String {
@@ -176,7 +176,7 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     val stride = labelStride(view.slot, labelWidth + 8f * d)
     for (i in view.visible) {
         if (i % stride != 0) continue
-        val x = xOf(i, n, view.scroll, main.width, view.slot)
+        val x = xOf(i, state.slotCount, view.scroll, main.width, view.slot)
         if (x < 0f || x > main.right) continue
         val text = spec.axisLabel(series, i)
         val w = spec.measurer.measure(text, style).size.width
@@ -204,7 +204,7 @@ private fun DrawScope.drawCandles(state: LineChartState, spec: ChartSpec, view: 
     for (i in view.visible) {
         val item = items[i]
         val color = spec.colors.forDirection(direction(items, i, ChartType.Candle))
-        val x = xOf(i, n, view.scroll, main.width, view.slot)
+        val x = xOf(i, state.slotCount, view.scroll, main.width, view.slot)
         val open = yOf(item.open, range, main.top, main.height)
         val close = yOf(item.cumulativeProfit, range, main.top, main.height)
         val top = yOf(maxOf(item.high, item.open, item.cumulativeProfit), range, main.top, main.height)
@@ -225,7 +225,7 @@ private fun DrawScope.drawVolume(state: LineChartState, spec: ChartSpec, view: V
     val body = candleBodyWidth(view.slot)
     for (i in view.visible) {
         val height = (items[i].volume / peak).toFloat() * volume.height
-        val x = xOf(i, n, view.scroll, volume.width, view.slot)
+        val x = xOf(i, state.slotCount, view.scroll, volume.width, view.slot)
         val color = spec.colors.forDirection(direction(items, i, spec.type)).copy(alpha = VOLUME_ALPHA)
         drawRect(color, Offset(x - body / 2f, volume.bottom - height), Size(body, height))
     }
@@ -243,7 +243,7 @@ private fun DrawScope.drawAverages(state: LineChartState, spec: ChartSpec, view:
         for (i in from..to) {
             val value = sma(state.series.prefix, i, period)
             if (value.isNaN()) continue
-            val x = xOf(i, n, view.scroll, main.width, view.slot)
+            val x = xOf(i, state.slotCount, view.scroll, main.width, view.slot)
             val y = yOf(value, range, main.top, main.height)
             if (started) path.lineTo(x, y) else path.moveTo(x, y)
             started = true
@@ -290,7 +290,7 @@ private fun DrawScope.drawExtremes(
         val value = if (candle) (if (isHigh) items[i].high else items[i].low) else items[i].cumulativeProfit
         val text = spec.priceFormatter(value)
         val width = spec.measurer.measure(text, style).size.width
-        val x = (xOf(i, n, view.scroll, main.width, view.slot) - width / 2f).coerceIn(0f, max(0f, main.right - width))
+        val x = (xOf(i, state.slotCount, view.scroll, main.width, view.slot) - width / 2f).coerceIn(0f, max(0f, main.right - width))
         val y = yOf(value, range, main.top, main.height)
         val top = if (isHigh) (y - lineH - 2f * density).coerceAtLeast(main.top) else (y + 2f * density).coerceAtMost(main.bottom - lineH)
         drawText(spec.measurer, text, Offset(x, top), style)
@@ -314,7 +314,7 @@ private fun DrawScope.drawSeries(
     var py = 0f
     var firstX = 0f
     for (i in from..to) {
-        val x = xOf(i, n, view.scroll, main.width, view.slot)
+        val x = xOf(i, state.slotCount, view.scroll, main.width, view.slot)
         val y = yOf(items[i].cumulativeProfit, range, main.top, main.height)
         if (i == from) {
             path.moveTo(x, y)

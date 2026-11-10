@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -71,6 +72,7 @@ private fun ChartBody(
     chartHeight: Dp?,
     overlays: List<Overlay>,
     panes: List<PaneIndicator>,
+    settings: ChartSettings,
     paneHeight: Dp,
     timeframe: Timeframe?,
     priceFormatter: (Double) -> String,
@@ -99,6 +101,7 @@ private fun ChartBody(
             label = "pulseValue",
         )
     }
+    SideEffect { state.pad = totalPad(settings.rightMargin, overlays.maxOfOrNull { it.rightPad } ?: 0) }
     LaunchedEffect(state) {
         snapshotFlow { state.itemCount }.first { it > 0 }
         if (state.entry.value < 1f) state.entry.animateTo(1f, tween(ENTRY_MILLIS))
@@ -122,7 +125,7 @@ public fun LineChart(
     modifier: Modifier,
     state: LineChartState,
 ) {
-    ChartBody(modifier, state, ChartType.Candle, defaultColors(), null, DEFAULT_OVERLAYS, DEFAULT_PANES, PANE_HEIGHT, null, ::formatPrice, null, ChartTextStyle)
+    ChartBody(modifier, state, ChartType.Candle, defaultColors(), null, DEFAULT_OVERLAYS, DEFAULT_PANES, DEFAULT_SETTINGS, PANE_HEIGHT, null, ::formatPrice, null, ChartTextStyle)
 }
 
 /**
@@ -163,7 +166,7 @@ public fun LineChartPanel(
 ) {
     ChartBody(
         modifier,
-        state, chartType, colors, chartHeight, overlays, panes, paneHeight, timeframe, priceFormatter, timeFormatter, textStyle,
+        state, chartType, colors, chartHeight, overlays, panes, settings, paneHeight, timeframe, priceFormatter, timeFormatter, textStyle,
     )
 }
 

@@ -382,6 +382,7 @@ public class LineChartState internal constructor(
     private var followOnRelease = false
     internal var slot: Float by mutableFloatStateOf(Float.NaN)
     internal var crosshair: Offset by mutableStateOf(Offset.Unspecified)
+    internal var pad: Int by mutableIntStateOf(0)
     internal var plot: Rect = Rect.Zero
     internal var frame: Frame? = null
     internal var axisW: Float = 0f
@@ -411,6 +412,8 @@ public class LineChartState internal constructor(
     }
 
     public val itemCount: Int get() = series.items.size
+
+    internal val slotCount: Int get() = itemCount + pad
 
     public val labels: List<String> get() = series.labels
 
@@ -452,14 +455,14 @@ public class LineChartState internal constructor(
         val next = nextScroll(scroll, appendedCount(this.items, limited), crosshair.isSpecified)
         series = Series(limited)
         val width = plot.width
-        scroll = if (width > 0f) clampScroll(next, limited.size, width, slotFor(width)) else next
+        scroll = if (width > 0f) clampScroll(next, slotCount, width, slotFor(width)) else next
     }
 
     internal fun slotPx(): Float = slotFor(plot.width)
 
     internal fun slotFor(plotWidth: Float): Float {
         val maxSlot = MAX_SLOT_DP * density
-        return effectiveSlot(slot, DEFAULT_SLOT_DP * density, minSlot(plotWidth, itemCount, MIN_SLOT_DP * density, maxSlot), maxSlot)
+        return effectiveSlot(slot, DEFAULT_SLOT_DP * density, minSlot(plotWidth, slotCount, MIN_SLOT_DP * density, maxSlot), maxSlot)
     }
 
     /**
@@ -470,10 +473,10 @@ public class LineChartState internal constructor(
         if (itemCount == 0 || width <= 0f || !focalX.isFinite() || !zoom.isFinite() || !panX.isFinite()) return
         val old = slotPx()
         val maxSlot = MAX_SLOT_DP * density
-        val new = (old * zoom).coerceIn(minSlot(width, itemCount, MIN_SLOT_DP * density, maxSlot), maxSlot)
+        val new = (old * zoom).coerceIn(minSlot(width, slotCount, MIN_SLOT_DP * density, maxSlot), maxSlot)
         val zoomed = zoomScroll(scroll, width, old, new, focalX - plot.left)
         slot = new
-        scroll = clampScroll(zoomed + panX / new, itemCount, width, new)
+        scroll = clampScroll(zoomed + panX / new, slotCount, width, new)
     }
 
     private fun mainYRange(): YRange {
@@ -512,14 +515,15 @@ public class LineChartState internal constructor(
         val width = plot.width
         if (n == 0 || width <= 0f || !offset.x.isFinite()) return DRAG_SELECTION_NONE
         val slot = slotPx()
-        val scroll = clampScroll(scroll, n, width, slot)
-        val index = indexAt(offset.x - plot.left, n, scroll, width, slot)
-        val range = frame?.range ?: visibleYRange(items, visibleRange(n, scroll, width, slot), ChartType.Line)
+        val slots = slotCount
+        val scroll = clampScroll(scroll, slots, width, slot)
+        val index = indexAt(offset.x - plot.left, slots, scroll, width, slot, n)
+        val range = frame?.range ?: visibleYRange(items, visibleRange(slots, scroll, width, slot, n), ChartType.Line)
         val close = items[index].cumulativeProfit
         val value = (close * scaleFactor).roundToLong()
         return DragSelection(
             position = Offset(
-                plot.left + xOf(index, n, scroll, width, slot),
+                plot.left + xOf(index, slots, scroll, width, slot),
                 plot.top + yOf(close, range, 0f, plot.height),
             ),
             item = ChartDataPoint(value, direction(items, index, ChartType.Line) >= 0),

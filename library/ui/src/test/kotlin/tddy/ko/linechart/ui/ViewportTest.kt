@@ -102,4 +102,35 @@ class ViewportTest {
         assertEquals(0f, nextScroll(30f, -1, false), 0f)
         assertEquals(10f, nextScroll(10f, 0, false), 0f)
     }
+
+    @Test
+    fun totalPad_isTheLargerOfMarginAndExtension() {
+        assertEquals(3, totalPad(3, 0))
+        assertEquals(25, totalPad(3, 25))
+        assertEquals(0, totalPad(0, 0))
+    }
+
+    @Test
+    fun slotCount_placesTheLastItemPadSlotsLeftOfTheRightEdge() {
+        assertEquals(100f - 3.5f * 8f, xOf(9, 13, 0f, 100f, 8f), 0.0001f)
+    }
+
+    @Test
+    fun indexAt_withPadCoercesIntoItemCount() {
+        assertEquals(9, indexAt(100f, 13, 0f, 100f, 8f, count = 10))
+        assertEquals(9, indexAt(xOf(9, 13, 0f, 100f, 8f), 13, 0f, 100f, 8f, count = 10))
+        assertEquals(0, indexAt(-500f, 13, 0f, 100f, 8f, count = 10))
+    }
+
+    @Test
+    fun visibleRange_withPadStopsAtTheLastItem() {
+        assertEquals(3..9, visibleRange(13, 0f, 80f, 8f, count = 10))
+        assertEquals(0..9, visibleRange(13, 3f, 100f, 8f, count = 10))
+        assertEquals(9..9, visibleRange(13, 0f, 24f, 8f, count = 10))
+    }
+
+    @Test
+    fun maxScroll_countsPadSlots() {
+        assertEquals(3f, maxScroll(13, 80f, 8f), 0.0001f)
+    }
 }

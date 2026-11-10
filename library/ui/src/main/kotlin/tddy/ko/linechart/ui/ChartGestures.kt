@@ -83,7 +83,7 @@ internal fun Modifier.chartGestures(state: LineChartState): Modifier = pointerIn
                         AnimationState(0f, velocity).animateDecay(splineBasedDecay(this@pointerInput)) {
                             val target = state.scroll + (value - previous) / slot
                             previous = value
-                            val clamped = clampScroll(target, state.itemCount, state.plot.width, slot)
+                            val clamped = clampScroll(target, state.slotCount, state.plot.width, slot)
                             state.scroll = clamped
                             if (clamped != target) cancelAnimation()
                         }

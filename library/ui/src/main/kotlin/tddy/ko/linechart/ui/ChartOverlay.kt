@@ -38,9 +38,10 @@ internal fun DrawScope.drawOverlay(state: LineChartState, spec: ChartSpec, pulse
     val layout = frame.layout
     val main = layout.main
     val slot = state.slotFor(main.width)
-    val scroll = clampScroll(state.scroll, n, main.width, slot)
+    val slots = state.slotCount
+    val scroll = clampScroll(state.scroll, slots, main.width, slot)
     val cross = state.crosshair
-    val index = if (cross.isSpecified) indexAt(cross.x, n, scroll, main.width, slot) else n - 1
+    val index = if (cross.isSpecified) indexAt(cross.x, slots, scroll, main.width, slot, n) else n - 1
     val colors = spec.colors
     val style = spec.textStyle.copy(color = colors.text)
     val lineH = spec.measurer.measure("0", spec.textStyle).size.height.toFloat()
@@ -55,7 +56,7 @@ internal fun DrawScope.drawOverlay(state: LineChartState, spec: ChartSpec, pulse
         drawText(spec.measurer, spec.legend, Offset(0f, lineH), style, softWrap = false, maxLines = 1)
     }
     if (cross.isSpecified) {
-        val x = xOf(index, n, scroll, main.width, slot)
+        val x = xOf(index, slots, scroll, main.width, slot)
         val y = cross.y.coerceIn(main.top, main.bottom)
         val dash = spec.dash(d)
         drawLine(colors.crosshair, Offset(x, main.top), Offset(x, layout.timeAxis.top), d, pathEffect = dash)
@@ -72,7 +73,7 @@ internal fun DrawScope.drawOverlay(state: LineChartState, spec: ChartSpec, pulse
         drawRect(colors.crosshair, Offset(timeLeft, layout.timeAxis.top), Size(timeW, lineH + 2f * d))
         drawText(spec.measurer, time, Offset(timeLeft + 4f * d, layout.timeAxis.top + d), tagStyle)
     } else if (pulse != null && state.entry.value >= 1f) {
-        val x = xOf(n - 1, n, scroll, main.width, slot)
+        val x = xOf(n - 1, slots, scroll, main.width, slot)
         if (x in 0f..main.right) {
             val center = Offset(x, yOf(items.last().cumulativeProfit, frame.range, main.top, main.height))
             val color = colors.forDirection(items.last().cumulativeProfit.compareTo(items.first().cumulativeProfit))

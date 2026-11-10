@@ -17,7 +17,7 @@ internal fun minSlot(plotW: Float, n: Int, minPx: Float, maxSlot: Float): Float 
     (if (n > 0) max(minPx, plotW / n) else maxSlot).coerceAtMost(maxSlot)
 
 /**
- * Largest scroll in slots from the right edge, keeping the first item inside the plot.
+ * Largest scroll in slots from the right edge, keeping the first slot inside the plot.
  */
 internal fun maxScroll(n: Int, plotW: Float, slot: Float): Float = max(0f, n - plotW / slot)
 
@@ -25,28 +25,33 @@ internal fun clampScroll(scroll: Float, n: Int, plotW: Float, slot: Float): Floa
     scroll.coerceIn(0f, maxScroll(n, plotW, slot))
 
 /**
- * Center x in px of item [i] with scroll counted in slots from the right edge.
+ * Center x in px of slot [i] among [n] slots with scroll counted in slots from the right edge.
  */
 internal fun xOf(i: Int, n: Int, scroll: Float, plotW: Float, slot: Float): Float =
     plotW - (n - scroll - i - 0.5f) * slot
 
 /**
- * Item index under [x], coerced into the item range, or -1 for an empty series.
+ * Item index under [x] among [n] slots, coerced into the [count] items, or -1 for an empty series.
  */
-internal fun indexAt(x: Float, n: Int, scroll: Float, plotW: Float, slot: Float): Int {
-    if (n <= 0) return -1
-    return floor(n - scroll - (plotW - x) / slot).toInt().coerceIn(0, n - 1)
+internal fun indexAt(x: Float, n: Int, scroll: Float, plotW: Float, slot: Float, count: Int = n): Int {
+    if (count <= 0) return -1
+    return floor(n - scroll - (plotW - x) / slot).toInt().coerceIn(0, count - 1)
 }
 
 /**
- * Indices of the items intersecting the plot, empty for an empty series.
+ * Indices of the [count] items intersecting the plot of [n] slots, empty for an empty series.
  */
-internal fun visibleRange(n: Int, scroll: Float, plotW: Float, slot: Float): IntRange {
-    if (n <= 0) return IntRange.EMPTY
-    val first = floor(n - scroll - plotW / slot).toInt().coerceAtLeast(0)
-    val last = (ceil(n - scroll).toInt() - 1).coerceAtMost(n - 1)
+internal fun visibleRange(n: Int, scroll: Float, plotW: Float, slot: Float, count: Int = n): IntRange {
+    if (count <= 0) return IntRange.EMPTY
+    val first = floor(n - scroll - plotW / slot).toInt().coerceIn(0, count - 1)
+    val last = (ceil(n - scroll).toInt() - 1).coerceAtMost(count - 1)
     return first..last
 }
+
+/**
+ * Blank slots after the last item, the larger of the user right margin and the extension an indicator needs.
+ */
+internal fun totalPad(rightMargin: Int, rightPad: Int): Int = max(rightMargin, rightPad)
 
 /**
  * Scroll that keeps the item under focal x [fx] fixed while the slot changes from [old] to [new].
