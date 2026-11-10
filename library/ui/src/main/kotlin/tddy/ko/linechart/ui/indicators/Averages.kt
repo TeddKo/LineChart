@@ -26,12 +26,21 @@ internal fun sma(values: DoubleArray, period: Int): DoubleArray {
 }
 
 /**
- * Exponential moving average with factor 2 / (period + 1), seeded by the simple average of the first window.
+ * Exponential moving average with factor 2 / (period + 1), seeded by the simple average of the first [period] values after any leading NaN.
  */
 internal fun ema(values: DoubleArray, period: Int): DoubleArray {
-    val out = sma(values, period)
+    val out = DoubleArray(values.size) { Double.NaN }
+    val start = values.indexOfFirst { !it.isNaN() }
+    if (start < 0 || start + period > values.size) return out
     val alpha = 2.0 / (period + 1)
-    for (i in period until values.size) out[i] = values[i] * alpha + out[i - 1] * (1.0 - alpha)
+    var previous = 0.0
+    for (k in start until start + period) previous += values[k]
+    previous /= period
+    out[start + period - 1] = previous
+    for (i in start + period until values.size) {
+        previous = values[i] * alpha + previous * (1.0 - alpha)
+        out[i] = previous
+    }
     return out
 }
 
