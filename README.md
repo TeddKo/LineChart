@@ -206,7 +206,8 @@ The main pane range is the visible low and high with 5 percent padding. Bollinge
 The previous session close is the close of the last candle of the previous local day for intraday timeframes (device time zone) and the previous candle close for day and longer.
 
 ![Settings](docs/images/settings.jpg)
-![Percent scale](docs/images/percent_log.jpg)
+![Percent scale](docs/images/scale_percent.jpg)
+![Log scale](docs/images/scale_log.jpg)
 
 ## Multi-pane layout and height rules
 
