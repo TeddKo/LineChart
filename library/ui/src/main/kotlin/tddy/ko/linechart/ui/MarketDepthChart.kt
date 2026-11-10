@@ -126,6 +126,11 @@ private fun depthDescription(depth: Depth, priceFormatter: (Long) -> String): St
     }
 }
 
+/**
+ * This value limited to zero through [max], zero when [max] is negative.
+ */
+private fun Float.coerceWithin(max: Float): Float = coerceAtMost(max).coerceAtLeast(0f)
+
 private class DepthGeometry(val plotWidth: Float, val plotHeight: Float, val xMin: Double, val xMax: Double, val yMax: Double) {
     fun x(price: Double): Float = ((price - xMin) / (xMax - xMin) * plotWidth).toFloat()
 
@@ -159,12 +164,12 @@ private fun DrawScope.drawDepth(
         val y = g.y(tick)
         drawLine(colors.grid, Offset(0f, y), Offset(plotWidth, y), 1f)
         val label = measurer.measure(tick.toString(), axisStyle)
-        drawText(label, topLeft = Offset(plotWidth + gap, (y - label.size.height / 2f).coerceIn(0f, plotHeight - label.size.height)))
+        drawText(label, topLeft = Offset(plotWidth + gap, (y - label.size.height / 2f).coerceWithin(plotHeight - label.size.height)))
     }
     var lastRight = Float.NEGATIVE_INFINITY
     for (tick in niceTicks(range.first, range.second, 5)) {
         val label = measurer.measure(priceFormatter(tick.roundToLong()), axisStyle)
-        val left = (g.x(tick) - label.size.width / 2f).coerceIn(0f, plotWidth - label.size.width)
+        val left = (g.x(tick) - label.size.width / 2f).coerceWithin(plotWidth - label.size.width)
         if (left < lastRight + gap) continue
         drawText(label, topLeft = Offset(left, plotHeight + gap))
         lastRight = left + label.size.width
@@ -181,7 +186,7 @@ private fun DrawScope.drawDepth(
         )
         depth.spread?.let { spread ->
             val label = measurer.measure(priceFormatter(spread), axisStyle.copy(color = primary))
-            drawText(label, topLeft = Offset((x - label.size.width / 2f).coerceIn(0f, plotWidth - label.size.width), 0f))
+            drawText(label, topLeft = Offset((x - label.size.width / 2f).coerceWithin(plotWidth - label.size.width), 0f))
         }
     }
 
@@ -190,7 +195,7 @@ private fun DrawScope.drawDepth(
         drawLine(colors.crosshair, Offset(x, 0f), Offset(x, plotHeight), 1f)
         val label = measurer.measure(cursorText, axisStyle.copy(color = colors.background))
         val pad = TagPadding.toPx()
-        val left = (x - label.size.width / 2f).coerceIn(0f, plotWidth - label.size.width)
+        val left = (x - label.size.width / 2f).coerceWithin(plotWidth - label.size.width)
         drawRect(
             colors.crosshair, Offset(left - pad, 0f), Size(label.size.width + 2 * pad, label.size.height + 2 * pad), style = Fill,
         )

@@ -1,6 +1,9 @@
 package tddy.ko.linechart.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -62,5 +65,19 @@ class MarketDepthChartTest {
         rule.onNodeWithTag("depth").assert(hasCursor)
         rule.onNodeWithTag("depth").performTouchInput { up() }
         rule.onNodeWithTag("depth").assert(hasCursor.not())
+    }
+
+    @Test
+    fun narrowAndShort_longPressDoesNotCrash() {
+        rule.setContent {
+            Box(Modifier.width(40.dp)) { DepthChart(bids, asks, Modifier.testTag("depth"), height = 30.dp) }
+        }
+        rule.onNodeWithTag("depth").performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+            moveBy(Offset(5f, 0f))
+        }
+        rule.onNodeWithTag("depth").assert(hasCursor)
+        rule.onNodeWithTag("depth").performTouchInput { up() }
     }
 }
