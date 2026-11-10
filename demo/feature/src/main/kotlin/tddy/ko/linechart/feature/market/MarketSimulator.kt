@@ -50,7 +50,8 @@ class MarketUiState(
 
 /**
  * Demo market over [MatchingEngine] with an injected clock: seeded history, then a live loop of random orders.
- * Every engine access runs on the caller's thread, and the seeding yields between steps so the screen stays responsive.
+ * Every engine access runs on the caller's thread, the seeding yields between steps so the screen stays responsive,
+ * and a cancelled seeding resumes from its last step instead of starting again.
  */
 class MarketSimulator(private val random: Random = Random(11)) {
     private var now = System.currentTimeMillis()
@@ -59,7 +60,10 @@ class MarketSimulator(private val random: Random = Random(11)) {
     private val fair = anchor.toMutableMap()
     private val all = ArrayList<MarketTrade>()
     private val resting = ArrayDeque<Long>()
-    private var ready = false
+    var ready by mutableStateOf(false)
+        private set
+    private var seedTime = -1L
+    private val seedEnd = now
     private var historyOption = ""
     private var historyCount = -1
     private var history = emptyList<ChartData>()
@@ -95,16 +99,17 @@ class MarketSimulator(private val random: Random = Random(11)) {
         engine.place(selected, side, OrderType.Limit, 1, price, now + days * DAY_MILLIS, OWNER).also { record(it); publish() }
 
     private suspend fun seed() {
-        val start = now - HISTORY_DAYS * DAY_MILLIS
-        val end = now
-        var time = start
-        while (time < end) {
-            now = time
-            Options.forEach { step(it) }
-            time += HISTORY_STEP_MILLIS
-            yield()
+        if (seedTime < 0) seedTime = seedEnd - HISTORY_DAYS * DAY_MILLIS
+        try {
+            while (seedTime < seedEnd) {
+                now = seedTime
+                Options.forEach { step(it) }
+                seedTime += HISTORY_STEP_MILLIS
+                yield()
+            }
+        } finally {
+            now = seedEnd
         }
-        now = end
     }
 
     private fun step(option: String) {

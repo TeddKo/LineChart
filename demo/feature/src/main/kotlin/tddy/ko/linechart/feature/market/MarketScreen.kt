@@ -103,8 +103,8 @@ fun MarketScreen(sim: MarketSimulator, colors: ChartColors) {
         InstantTradeButtons(
             bestAsk = ui.bestAsk,
             bestBid = ui.bestBid,
-            onBuy = { message = sim.instant(Side.Buy, ui.bestAsk).describe() },
-            onSell = { message = sim.instant(Side.Sell, ui.bestBid).describe() },
+            onBuy = { if (sim.ready) message = sim.instant(Side.Buy, ui.bestAsk).describe() },
+            onSell = { if (sim.ready) message = sim.instant(Side.Sell, ui.bestBid).describe() },
             colors = colors,
         )
         if (message.isNotEmpty()) Text(message, Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium)
@@ -134,7 +134,7 @@ fun MarketScreen(sim: MarketSimulator, colors: ChartColors) {
             1 -> OrderBookLadder(ui.asks, MarketSide.Ask, onLevelClick = { openSheet(Side.Buy, it) }, colors = colors)
             else -> OrderBookLadder(ui.bids, MarketSide.Bid, onLevelClick = { openSheet(Side.Sell, it) }, colors = colors)
         }
-        Button({ openSheet(Side.Buy, ui.bestBid) }, Modifier.fillMaxWidth().padding(horizontal = 16.dp)) { Text("입찰하기") }
+        Button({ openSheet(Side.Buy, ui.bestBid) }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), enabled = sim.ready) { Text("입찰하기") }
     }
 
     if (sheet) {
