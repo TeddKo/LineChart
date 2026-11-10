@@ -1,5 +1,7 @@
 package tddy.ko.linechart.orderbook
 
+import java.util.PriorityQueue
+
 /**
  * Price-time priority matching engine over independent books per option.
  *
@@ -15,6 +17,7 @@ public class MatchingEngine(
 ) {
     private val books = HashMap<String, OrderBook>()
     private val byId = HashMap<Long, Resting>()
+    private val expiries = PriorityQueue<Resting>(compareBy({ it.expiresAt }, { it.id }))
 
     /**
      * Places an order. A rejected order consumes no id and returns a null [OrderResult.orderId].
@@ -38,7 +41,7 @@ public class MatchingEngine(
             if (invalid != null) return rejected(invalid)
         }
         val book = books.getOrPut(option) { OrderBook(option) }
-        if (type == OrderType.Limit && !policy.allowCrossing && price != null && crosses(book, side, price)) {
+        if (type == OrderType.Limit && !policy.allowCrossing && price != null && crosses(book, side, price, now)) {
             return rejected(RejectReason.Crossing)
         }
         return match(book, side, type, quantity, price, expiresAt, owner, now)
@@ -59,14 +62,33 @@ public class MatchingEngine(
      */
     public fun modify(orderId: Long, price: Long? = null, expiresAt: Long? = null): OrderResult {
         val now = clock()
-        val resting = byId[orderId] ?: return rejected(RejectReason.NotFound)
+        val resting = byId[orderId]?.takeIf { it.expiresAt > now } ?: return rejected(RejectReason.NotFound)
         val newPrice = price ?: resting.price
         val newExpiry = expiresAt ?: resting.expiresAt
         val book = books.getValue(resting.option)
         validateLimit(newPrice, newExpiry, now)?.let { return rejected(it) }
-        if (!policy.allowCrossing && crosses(book, resting.side, newPrice)) return rejected(RejectReason.Crossing)
+        if (!policy.allowCrossing && crosses(book, resting.side, newPrice, now)) return rejected(RejectReason.Crossing)
         cancel(orderId)
         return match(book, resting.side, OrderType.Limit, resting.remaining, newPrice, newExpiry, resting.owner, now, orderId)
+    }
+
+    /**
+     * Reclaims every order with `expiresAt <= now` and returns them sorted by expiry then id.
+     *
+     * Matching skips expired orders on its own, but they stay known to [order] and [snapshot] until this runs,
+     * so the caller invokes it on a timer.
+     */
+    public fun expire(now: Long = clock()): List<Order> {
+        val expired = ArrayList<Order>()
+        while (true) {
+            val top = expiries.peek()?.takeIf { it.expiresAt <= now } ?: break
+            expiries.poll()
+            if (byId[top.id] !== top) continue
+            byId.remove(top.id)
+            books[top.option]?.remove(top)
+            expired += top.toOrder()
+        }
+        return expired
     }
 
     /** Open order by id, null when unknown or fully filled. */
@@ -82,8 +104,16 @@ public class MatchingEngine(
         else -> null
     }
 
-    private fun crosses(book: OrderBook, side: Side, price: Long): Boolean {
-        val best = book.best(side.opposite())?.price ?: return false
+    private fun liveBest(book: OrderBook, side: Side, now: Long): Resting? {
+        while (true) {
+            val best = book.best(side) ?: return null
+            if (best.expiresAt > now) return best
+            book.remove(best)
+        }
+    }
+
+    private fun crosses(book: OrderBook, side: Side, price: Long, now: Long): Boolean {
+        val best = liveBest(book, side.opposite(), now)?.price ?: return false
         return if (side == Side.Buy) price >= best else price <= best
     }
 
@@ -103,7 +133,7 @@ public class MatchingEngine(
         var reason: RejectReason? = null
         val fills = ArrayList<Trade>()
         while (remaining > 0) {
-            val maker = book.best(side.opposite()) ?: break
+            val maker = liveBest(book, side.opposite(), now) ?: break
             if (price != null && (if (side == Side.Buy) maker.price > price else maker.price < price)) break
             if (owner != null && maker.owner == owner) {
                 reason = RejectReason.SelfTrade
@@ -138,6 +168,7 @@ public class MatchingEngine(
             val resting = Resting(id, book.option, side, price, remaining, now, expiresAt, owner)
             book.add(resting)
             byId[id] = resting
+            if (expiresAt != Long.MAX_VALUE) expiries += resting
             return OrderResult(id, fills, remaining, 0, null)
         }
         return OrderResult(orderId, fills, 0, remaining, reason ?: RejectReason.NoLiquidity)
