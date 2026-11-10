@@ -84,49 +84,77 @@ private fun DrawScope.drawBarMark(mark: BarMark, spec: ChartSpec, pane: PaneCont
 }
 
 /**
- * Area between the two arrays, one polygon per run of values sharing a sign when the mark has no color.
+ * Contiguous slots [start] to [end] of a fill sharing the [tone] of the sign of a minus b, 0 for an unsigned fill.
  */
-private fun DrawScope.drawFillMark(mark: FillMark, spec: ChartSpec, pane: PaneContext) {
-    val path = spec.fillPath
+internal class FillRun(val start: Int, val end: Int, val tone: Int)
+
+/**
+ * Runs of slots from [from] to [to] where both values exist, split where the sign of their difference changes when [bySign].
+ */
+internal fun fillRuns(a: (Int) -> Double, b: (Int) -> Double, from: Int, to: Int, bySign: Boolean): List<FillRun> {
+    val runs = ArrayList<FillRun>()
     var start = -1
     var tone = 0
-    fun a(j: Int) = mark.a.getOrElse(j - mark.offset) { Double.NaN }
-    fun b(j: Int) = mark.b?.getOrElse(j - mark.offset) { Double.NaN } ?: 0.0
-    fun flush(end: Int) {
-        if (start < 0) return
-        path.reset()
-        path.moveTo(pane.x(start), pane.y(a(start)))
-        for (j in start + 1..end) path.lineTo(pane.x(j), pane.y(a(j)))
-        for (j in end downTo start) path.lineTo(pane.x(j), pane.y(b(j)))
-        path.close()
-        drawPath(path, mark.color ?: spec.colors.forDirection(tone).copy(alpha = mark.alpha))
-        start = -1
-    }
-    for (j in pane.from..pane.to) {
+    for (j in from..to) {
         val av = a(j)
         val bv = b(j)
         if (av.isNaN() || bv.isNaN()) {
-            flush(j - 1)
+            if (start >= 0) runs += FillRun(start, j - 1, tone)
+            start = -1
             continue
         }
-        val sign = if (mark.color == null) av.compareTo(bv) else 0
-        if (start >= 0 && sign != tone) flush(j - 1)
+        val sign = if (bySign) av.compareTo(bv) else 0
+        if (start >= 0 && sign != tone) {
+            runs += FillRun(start, j - 1, tone)
+            start = -1
+        }
         if (start < 0) {
             start = j
             tone = sign
         }
     }
-    flush(pane.to)
+    if (start >= 0) runs += FillRun(start, to, tone)
+    return runs
+}
+
+/**
+ * Area between the two arrays, one polygon per run of values sharing a sign when the mark has no color.
+ */
+private fun DrawScope.drawFillMark(mark: FillMark, spec: ChartSpec, pane: PaneContext) {
+    val path = spec.fillPath
+    fun a(j: Int) = mark.a.getOrElse(j - mark.offset) { Double.NaN }
+    fun b(j: Int) = mark.b?.getOrElse(j - mark.offset) { Double.NaN } ?: 0.0
+    for (run in fillRuns(::a, ::b, pane.from, pane.to, mark.color == null)) {
+        path.reset()
+        path.moveTo(pane.x(run.start), pane.y(a(run.start)))
+        for (j in run.start + 1..run.end) path.lineTo(pane.x(j), pane.y(a(j)))
+        for (j in run.end downTo run.start) path.lineTo(pane.x(j), pane.y(b(j)))
+        path.close()
+        drawPath(path, mark.color ?: spec.colors.forDirection(run.tone).copy(alpha = mark.alpha))
+    }
+}
+
+/**
+ * Slot of a dot with whether it lies above the candle.
+ */
+internal class DotSpot(val slot: Int, val above: Boolean)
+
+internal fun dotSpots(mark: DotMark, from: Int, to: Int): List<DotSpot> = (from..to).mapNotNull { j ->
+    if (mark.values.getOrElse(j - mark.offset) { Double.NaN }.isNaN()) null else DotSpot(j, mark.above.getOrElse(j - mark.offset) { false })
 }
 
 private fun DrawScope.drawDotMark(mark: DotMark, spec: ChartSpec, pane: PaneContext) {
-    for (j in pane.from..pane.to) {
-        val value = mark.values.getOrElse(j - mark.offset) { Double.NaN }
-        if (value.isNaN()) continue
-        val color = if (mark.above.getOrElse(j - mark.offset) { false }) spec.colors.down else spec.colors.up
-        drawCircle(color, DOT_RADIUS_DP * density, Offset(pane.x(j), pane.y(value)))
+    for (spot in dotSpots(mark, pane.from, pane.to)) {
+        val color = if (spot.above) spec.colors.down else spec.colors.up
+        drawCircle(color, DOT_RADIUS_DP * density, Offset(pane.x(spot.slot), pane.y(mark.values[spot.slot - mark.offset])))
     }
 }
+
+/**
+ * Y of the [levels] that fall inside the pane.
+ */
+internal fun levelYs(levels: DoubleArray, pane: PaneContext): List<Float> =
+    levels.map { pane.y(it) }.filter { it in pane.rect.top..pane.rect.bottom }
 
 /**
  * Horizontal reference lines at [levels], dashed in twice the grid opacity.
@@ -134,11 +162,8 @@ private fun DrawScope.drawDotMark(mark: DotMark, spec: ChartSpec, pane: PaneCont
 internal fun DrawScope.drawLevels(levels: DoubleArray, spec: ChartSpec, pane: PaneContext) {
     val grid = spec.colors.grid
     val color = grid.copy(alpha = min(1f, grid.alpha * 2f))
-    for (level in levels) {
-        val y = pane.y(level)
-        if (y in pane.rect.top..pane.rect.bottom) {
-            drawLine(color, Offset(0f, y), Offset(pane.rect.right, y), density, pathEffect = spec.dash(density))
-        }
+    for (y in levelYs(levels, pane)) {
+        drawLine(color, Offset(0f, y), Offset(pane.rect.right, y), density, pathEffect = spec.dash(density))
     }
 }
 
