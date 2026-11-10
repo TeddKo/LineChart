@@ -1,5 +1,6 @@
 package tddy.ko.linechart.ui
 
+import androidx.compose.ui.geometry.Rect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -61,5 +62,27 @@ class PaneLayoutTest {
         assertEquals(48f, axisWidth(labelWidth = 37f, density = 1f), 0f)
         assertEquals(44f, axisWidth(labelWidth = 36f, density = 1f), 0f)
         assertEquals(96f, axisWidth(labelWidth = 74f, density = 2f), 0f)
+    }
+
+    @Test
+    fun paneBody_startsBelowTheLegendStripAndKeepsTheOtherEdges() {
+        val body = paneBody(Rect(0f, 100f, 340f, 180f), 12f, 2f)
+        assertEquals(114f, body.top, 0f)
+        assertEquals(0f, body.left, 0f)
+        assertEquals(340f, body.right, 0f)
+        assertEquals(180f, body.bottom, 0f)
+    }
+
+    @Test
+    fun paneBody_withoutLegendIsTheWholePane() {
+        val pane = Rect(0f, 100f, 340f, 180f)
+        assertEquals(pane, paneBody(pane, 0f, 0f))
+    }
+
+    @Test
+    fun paneBody_neverInvertsInAPaneShorterThanTheStrip() {
+        val body = paneBody(Rect(0f, 100f, 340f, 108f), 12f, 2f)
+        assertEquals(108f, body.top, 0f)
+        assertEquals(0f, body.height, 0f)
     }
 }

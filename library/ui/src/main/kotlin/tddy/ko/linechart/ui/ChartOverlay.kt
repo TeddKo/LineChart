@@ -71,7 +71,7 @@ private fun DrawScope.drawOverlayPlot(state: LineChartState, spec: ChartSpec, pu
     if (cross.isSpecified) {
         val x = xOf(index, slots, scroll, main.width, slot)
         val paneIndex = layout.panes.indexOfFirst { cross.y in it.top..it.bottom }
-        val rect = if (paneIndex >= 0) layout.panes[paneIndex] else main
+        val rect = if (paneIndex >= 0) frame.bodies[paneIndex] else main
         val range = if (paneIndex >= 0) frame.paneRanges[paneIndex] else frame.range
         val y = cross.y.coerceIn(rect.top, rect.bottom)
         val dash = spec.dash(d)

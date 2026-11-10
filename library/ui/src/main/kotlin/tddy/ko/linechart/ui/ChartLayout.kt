@@ -38,6 +38,11 @@ internal fun paneLayout(
 }
 
 /**
+ * Plot area of [pane] below its legend strip of [strip] plus [gap], the strip being zero when the legend is hidden.
+ */
+internal fun paneBody(pane: Rect, strip: Float, gap: Float): Rect = Rect(pane.left, minOf(pane.top + strip + gap, pane.bottom), pane.right, pane.bottom)
+
+/**
  * Height the panes of [weights] add below the main pane, each [paneHeight] times its weight plus a [gap] above it.
  */
 internal fun totalPaneHeight(paneHeight: Float, weights: List<Float>, gap: Float): Float =

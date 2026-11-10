@@ -35,6 +35,7 @@ internal class Frame(
     val layout: PaneLayout,
     val range: YRange,
     val paneRanges: List<YRange>,
+    val bodies: List<Rect>,
     val scroll: Float,
     val slot: Float,
     val computed: Computed,
@@ -226,7 +227,9 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     val paneRanges = computed.panes.mapIndexed { k, pane ->
         paneYRange(computed.paneMarks[k], view.visible, pane.scale, pane.levels)
     }
-    val frame = Frame(layout, range, paneRanges, view.scroll, view.slot, computed, plotLeft)
+    val strip = if (settings.legend) lineH else 0f
+    val bodies = layout.panes.map { paneBody(it, strip, if (settings.legend) 2f * d else 0f) }
+    val frame = Frame(layout, range, paneRanges, bodies, view.scroll, view.slot, computed, plotLeft)
     state.frame = frame
     translate(plotLeft, 0f) { drawPlot(state, spec, frame, view, lineH, style) }
 }
@@ -251,7 +254,7 @@ private fun DrawScope.drawPlot(state: LineChartState, spec: ChartSpec, frame: Fr
         drawText(spec.measurer, spec.priceText(tick, computed), Offset(labelX, y - lineH / 2f), style)
     }
     computed.panes.forEachIndexed { k, pane ->
-        val rect = layout.panes[k]
+        val rect = frame.bodies[k]
         for (tick in paneTicks(pane, frame.paneRanges[k])) {
             val y = yOf(tick, frame.paneRanges[k], rect.top, rect.height)
             if (pane.levels.isEmpty() && gridHorizontal) drawLine(colors.grid, Offset(0f, y), Offset(rect.right, y), d)
@@ -276,7 +279,7 @@ private fun DrawScope.drawPlot(state: LineChartState, spec: ChartSpec, frame: Fr
 
     clipRect(0f, 0f, main.width * state.entry.value, size.height) {
         computed.panes.forEachIndexed { k, pane ->
-            val rect = layout.panes[k]
+            val rect = frame.bodies[k]
             val context = PaneContext(rect, frame.paneRanges[k], view, state.slotCount, series)
             clipRect(rect.left, rect.top, rect.right, rect.bottom) {
                 drawLevels(pane.levels, spec, context)
