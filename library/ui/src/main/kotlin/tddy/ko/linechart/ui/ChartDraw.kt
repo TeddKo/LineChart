@@ -212,7 +212,7 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     val log = settings.scale == PriceScale.Log
     val guessW = size.width - if (state.axisW > 0f) state.axisW else 48f * d
     val guessView = state.view(guessW)
-    val guessRange = visibleYRange(items, guessView.visible, spec.type, computed.scaleMarks, log)
+    val guessRange = visibleYRange(items, guessView.visible, spec.type, computed.scaleMarks, log, computed.baseInclude)
     val lastClose = items.last().cumulativeProfit
     var labelW = (mainTicks(guessRange, computed, state.yAxisTicksCount) + lastClose)
         .maxOf { spec.measurer.measure(spec.priceText(it, computed), style).size.width }
@@ -235,7 +235,7 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
         state.frame = null
         return
     }
-    val range = visibleYRange(items, view.visible, spec.type, computed.scaleMarks, log)
+    val range = visibleYRange(items, view.visible, spec.type, computed.scaleMarks, log, computed.baseInclude)
     val paneRanges = computed.panes.mapIndexed { k, pane ->
         paneYRange(computed.paneMarks[k], view.visible, pane.scale, pane.levels)
     }

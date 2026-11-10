@@ -18,6 +18,22 @@ class ScaleTest {
     }
 
     @Test
+    fun visibleYRange_includeWidensRangeToTheValue() {
+        val items = listOf(candle(10.0, 10.0, 20.0, 10.0), candle(20.0, 10.0, 20.0, 10.0))
+        val above = visibleYRange(items, 0..1, ChartType.Line, include = 30.0)
+        assertEquals(10.0 - 1.0, above.min, 1e-9)
+        assertEquals(30.0 + 1.0, above.max, 1e-9)
+        val below = visibleYRange(items, 0..1, ChartType.Line, include = 0.0)
+        assertEquals(-1.0, below.min, 1e-9)
+        assertEquals(21.0, below.max, 1e-9)
+        val inside = visibleYRange(items, 0..1, ChartType.Line, include = 15.0)
+        assertEquals(9.5, inside.min, 1e-9)
+        assertEquals(20.5, inside.max, 1e-9)
+        val none = visibleYRange(items, 0..1, ChartType.Line, include = Double.NaN)
+        assertEquals(9.5, none.min, 1e-9)
+    }
+
+    @Test
     fun visibleYRange_lineAndAreaUseClose() {
         val items = listOf(candle(10.0, 12.0, 20.0, 0.0), candle(20.0, 10.0, 100.0, 5.0))
         for (type in listOf(ChartType.Line, ChartType.Area)) {

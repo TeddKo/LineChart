@@ -14,7 +14,7 @@ import kotlin.math.pow
 internal class YRange(val min: Double, val max: Double, val log: Boolean = false)
 
 /**
- * Padded value range of the items in [range], using low and high for candles and close for line and area, widened by the [marks] values in [range].
+ * Padded value range of the items in [range], using low and high for candles and close for line and area, widened by the [marks] values in [range] and by [include] unless it is NaN.
  * With [log] the padding is applied in log space, falling back to a linear range when a value is not positive.
  */
 internal fun visibleYRange(
@@ -23,10 +23,11 @@ internal fun visibleYRange(
     type: ChartType,
     marks: List<Mark> = emptyList(),
     log: Boolean = false,
+    include: Double = Double.NaN,
 ): YRange {
     if (range.isEmpty()) return YRange(0.0, 1.0)
-    var min = Double.POSITIVE_INFINITY
-    var max = Double.NEGATIVE_INFINITY
+    var min = if (include.isNaN()) Double.POSITIVE_INFINITY else include
+    var max = if (include.isNaN()) Double.NEGATIVE_INFINITY else include
     for (i in range) {
         val item = items[i]
         val low = if (type == ChartType.Candle) item.low else item.cumulativeProfit

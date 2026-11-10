@@ -8,6 +8,7 @@ import java.util.TimeZone
  * @property scaleMarks marks of the overlays that take part in the main Y range
  * @property cache marks by indicator, reused while the series stays the same
  * @property base value of the base line, the previous close or the first close standing in for it on the percent scale, NaN when there is none
+ * @property baseInclude value the main Y range must contain, the base while a base line is selected and NaN otherwise
  * @property prevClose close of the previous session, NaN when there is none
  */
 internal class Computed(
@@ -21,6 +22,8 @@ internal class Computed(
     val base: Double,
     val prevClose: Double,
 ) {
+    val baseInclude: Double = if (settings.baseLine == BaseLine.None) Double.NaN else base
+
     val scaleMarks: List<Mark> = overlays.indices.filter { overlays[it].inScale }.flatMap { overlayMarks[it] }
 
     companion object {
