@@ -633,16 +633,20 @@ public fun infiniteTransitionValue(
 }
 
 /**
- * Height [deltas] of the [previous] panes carried to the [next] panes, each taking the delta of the unclaimed previous pane that equals it, else the one of its kind at its own position, else any of its kind, and zero when there is none.
+ * Height [deltas] of the [previous] panes carried to the [next] panes: first every pane takes the delta of an unclaimed equal previous pane, then the remaining panes take the one of their kind at their own position, else any of their kind, and zero when there is none.
  */
 internal fun remapPaneDeltas(previous: List<PaneIndicator>, deltas: List<Float>, next: List<PaneIndicator>): List<Float> {
     if (deltas.isEmpty()) return deltas
     val claimed = BooleanArray(previous.size)
-    return next.mapIndexed { k, pane ->
-        val free = { j: Int -> !claimed[j] && previous[j]::class == pane::class }
-        val j = previous.indices.firstOrNull { free(it) && previous[it] == pane }
-            ?: k.takeIf { it < previous.size && free(it) }
-            ?: previous.indices.firstOrNull(free)
-        if (j == null) 0f else deltas.getOrElse(j) { 0f }.also { claimed[j] = true }
+    val source = IntArray(next.size) { -1 }
+    next.forEachIndexed { k, pane ->
+        previous.indices.firstOrNull { !claimed[it] && previous[it] == pane }?.let { claimed[it] = true; source[k] = it }
     }
+    next.forEachIndexed { k, pane ->
+        if (source[k] >= 0) return@forEachIndexed
+        val free = { j: Int -> !claimed[j] && previous[j]::class == pane::class }
+        val j = k.takeIf { it < previous.size && free(it) } ?: previous.indices.firstOrNull(free)
+        if (j != null) { claimed[j] = true; source[k] = j }
+    }
+    return source.map { if (it < 0) 0f else deltas.getOrElse(it) { 0f } }
 }

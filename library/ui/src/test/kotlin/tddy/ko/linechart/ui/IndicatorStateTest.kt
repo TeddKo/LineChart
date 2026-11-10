@@ -167,5 +167,6 @@ class IndicatorStateTest {
         assertEquals(listOf(0f), deltas)
         assertEquals(listOf(60f, 0f), remapPaneDeltas(listOf(Rsi(14), Rsi(9)), listOf(60f, 0f), listOf(Rsi(14), Rsi(9))))
         assertEquals(listOf(0f, 60f), remapPaneDeltas(listOf(Rsi(14), Rsi(9)), listOf(60f, 0f), listOf(Rsi(9), Rsi(14))))
+        assertEquals(listOf(0f, 60f), remapPaneDeltas(listOf(Rsi(14)), listOf(60f), listOf(Rsi(9), Rsi(14))))
     }
 }
