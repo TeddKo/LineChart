@@ -13,6 +13,7 @@ class ChartDataTest {
         assertEquals(10.0, data.high, 0.0)
         assertEquals(10.0, data.low, 0.0)
         assertEquals(0.0, data.volume, 0.0)
+        assertEquals(0.0, data.value, 0.0)
     }
 
     @Test
@@ -31,6 +32,15 @@ class ChartDataTest {
         assertEquals(12.0, data.high, 0.0)
         assertEquals(7.0, data.low, 0.0)
         assertEquals(300.0, data.volume, 0.0)
+    }
+
+    @Test
+    fun valueFollowsVolumeAndSurvivesCopy() {
+        val data = ChartData(10.0, 5L, volume = 3.0, value = 1_500.0)
+        assertEquals(1_500.0, data.value, 0.0)
+        assertEquals(1_500.0, data.copy(cumulativeProfit = 11.0).value, 0.0)
+        assertEquals(1_500.0, data.component7(), 0.0)
+        assertNotEquals(data, data.copy(value = 2.0))
     }
 
     @Test

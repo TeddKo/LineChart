@@ -54,6 +54,7 @@ public val DRAG_SELECTION_NONE: DragSelection = DragSelection(Offset.Zero, CHART
  * @property high candle high, defaulting to the larger of open and close
  * @property low candle low, defaulting to the smaller of open and close
  * @property volume traded volume, 0 when absent
+ * @property value traded value, 0 when absent
  */
 @Stable
 public data class ChartData(
@@ -63,6 +64,7 @@ public data class ChartData(
     public val high: Double = maxOf(open, cumulativeProfit),
     public val low: Double = minOf(open, cumulativeProfit),
     public val volume: Double = 0.0,
+    public val value: Double = 0.0,
 ) {
     @Deprecated("Binary compatibility", level = DeprecationLevel.HIDDEN)
     public constructor(cumulativeProfit: Double, date: Long) : this(cumulativeProfit, date, cumulativeProfit)

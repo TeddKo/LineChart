@@ -132,7 +132,7 @@ class TimeframeTest {
 
     @Test
     fun tick_groupsConsecutiveItemsAndUsesTheFirstDate() {
-        val items = (1..7).map { tick(it * 1000L, close = it.toDouble(), volume = 1.0) }
+        val items = (1..7).map { tick(it * 1000L, close = it.toDouble(), volume = 1.0).copy(value = 10.0) }
         val result = items.aggregate(Timeframe(TimeframeUnit.Tick, 3), seoul)
         assertEquals(listOf(1000L, 4000L, 7000L), result.map { it.date })
         assertEquals(listOf(3.0, 6.0, 7.0), result.map { it.cumulativeProfit })
@@ -140,6 +140,7 @@ class TimeframeTest {
         assertEquals(listOf(3.0, 6.0, 7.0), result.map { it.high })
         assertEquals(listOf(1.0, 4.0, 7.0), result.map { it.low })
         assertEquals(listOf(3.0, 3.0, 1.0), result.map { it.volume })
+        assertEquals(listOf(30.0, 30.0, 10.0), result.map { it.value })
         assertEquals(items, items.aggregate(Timeframe.Tick, seoul))
     }
 

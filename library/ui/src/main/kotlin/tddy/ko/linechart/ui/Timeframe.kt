@@ -58,7 +58,7 @@ public class Timeframe(public val unit: TimeframeUnit, public val count: Int = 1
 }
 
 /**
- * Candles of [timeframe] grouped from the items in time order, with open of the first item, high and low extremes, close of the last item and summed volume.
+ * Candles of [timeframe] grouped from the items in time order, with open of the first item, high and low extremes, close of the last item, summed volume and summed value.
  *
  * The candle date is the bucket start in [timeZone], and for Tick the date of the first item of each group of [Timeframe.count] items.
  * Aggregating the full list on every update suits modest histories, while apps with large histories keep the aggregated history and re-aggregate only the last bucket.
@@ -88,13 +88,15 @@ private fun List<ChartData>.merge(from: Int, to: Int, date: Long): ChartData {
     var high = first.high
     var low = first.low
     var volume = 0.0
+    var value = 0.0
     for (i in from until to) {
         val item = this[i]
         if (item.high > high) high = item.high
         if (item.low < low) low = item.low
         volume += item.volume
+        value += item.value
     }
-    return ChartData(this[to - 1].cumulativeProfit, date, first.open, high, low, volume)
+    return ChartData(this[to - 1].cumulativeProfit, date, first.open, high, low, volume, value)
 }
 
 private fun bucketKey(item: ChartData, index: Int, timeframe: Timeframe, timeZone: TimeZone, calendar: Calendar): Long =
