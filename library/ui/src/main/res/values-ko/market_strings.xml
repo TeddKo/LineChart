@@ -7,4 +7,11 @@
     <string name="market_price">가격</string>
     <string name="market_quantity">수량</string>
     <string name="market_ladder_select">가격 선택</string>
+    <string name="market_size">사이즈</string>
+    <string name="market_trade_price">거래가</string>
+    <string name="market_trade_date">거래일</string>
+    <string name="market_buy">구매</string>
+    <string name="market_sell">판매</string>
+    <string name="market_instant_buy_price">즉시 구매가</string>
+    <string name="market_instant_sell_price">즉시 판매가</string>
 </resources>
