@@ -39,11 +39,13 @@ androidx-test-runner = { group = "androidx.test", name = "runner", version.ref =
 [plugins]
 tddy-ko-android-application = { id = "tddy.ko.linechart.application", version = "unspecified" }
 tddy-ko-android-library = { id = "tddy.ko.linechart.library", version = "unspecified" }
+tddy-ko-kotlin-library = { id = "tddy.ko.linechart.kotlin.library", version = "unspecified" }
 tddy-ko-compose-application = { id = "tddy.ko.linechart.compose.application", version = "unspecified" }
 tddy-ko-compose-library = { id = "tddy.ko.linechart.compose.library", version = "unspecified" }
 
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
 
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 vanniktech-maven = { id = "com.vanniktech.maven.publish", version.ref = "vankiktechMaven" }

@@ -26,6 +26,7 @@ rootProject.name = "LineChart"
 include(":app")
 
 include(":library:ui")
+include(":library:orderbook")
 include(
     ":demo:feature",
     ":demo:design-system"
