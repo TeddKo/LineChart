@@ -29,6 +29,7 @@ internal fun DrawScope.drawMark(mark: Mark, spec: ChartSpec, pane: PaneContext) 
         is BarMark -> drawBarMark(mark, spec, pane)
         is FillMark -> drawFillMark(mark, spec, pane)
         is DotMark -> drawDotMark(mark, spec, pane)
+        is ProfileMark -> drawProfile(mark, spec, pane)
     }
 }
 
@@ -63,6 +64,9 @@ private fun DrawScope.drawLineMark(mark: LineMark, spec: ChartSpec, pane: PaneCo
 private const val BAR_DIRECTION_ALPHA = 0.5f
 private const val BAR_SIGN_ALPHA = 0.6f
 private const val DOT_RADIUS_DP = 1.5f
+private const val PROFILE_WIDTH = 0.3f
+private const val PROFILE_ALPHA = 0.15f
+private const val PROFILE_POC_ALPHA = 0.3f
 
 private fun DrawScope.drawBarMark(mark: BarMark, spec: ChartSpec, pane: PaneContext) {
     val body = candleBodyWidth(pane.view.slot)
@@ -135,5 +139,22 @@ internal fun DrawScope.drawLevels(levels: DoubleArray, spec: ChartSpec, pane: Pa
         if (y in pane.rect.top..pane.rect.bottom) {
             drawLine(color, Offset(0f, y), Offset(pane.rect.right, y), density, pathEffect = spec.dash(density))
         }
+    }
+}
+
+/**
+ * Horizontal volume bars of the visible range growing from the left edge up to 30% of the pane width, the busiest price in the up color.
+ */
+private fun DrawScope.drawProfile(mark: ProfileMark, spec: ChartSpec, pane: PaneContext) {
+    val profile = mark.profile(pane.series, pane.view.visible)
+    val peak = profile.volumes.maxOrNull() ?: return
+    val step = (profile.high - profile.low) / profile.volumes.size
+    if (peak <= 0.0 || step <= 0.0) return
+    profile.volumes.forEachIndexed { bin, volume ->
+        if (volume <= 0.0) return@forEachIndexed
+        val top = pane.y(profile.low + (bin + 1) * step)
+        val bottom = pane.y(profile.low + bin * step)
+        val color = if (bin == profile.poc) spec.colors.up.copy(alpha = PROFILE_POC_ALPHA) else spec.colors.text.copy(alpha = PROFILE_ALPHA)
+        drawRect(color, Offset(pane.rect.left, top), Size((volume / peak * PROFILE_WIDTH * pane.rect.width).toFloat(), bottom - top))
     }
 }

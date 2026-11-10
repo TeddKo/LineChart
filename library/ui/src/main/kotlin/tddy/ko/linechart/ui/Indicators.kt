@@ -46,6 +46,26 @@ internal class FillMark(val a: DoubleArray, val b: DoubleArray?, val color: Colo
  */
 internal class DotMark(val values: DoubleArray, val above: BooleanArray, val offset: Int = 0) : Mark()
 
+/**
+ * Volume profile of the visible range, a draw-time mark whose bins are memoized per series and visible range.
+ */
+internal class ProfileMark(val bins: Int) : Mark() {
+    private var memoSeries: Series? = null
+    private var memoFirst = -1
+    private var memoLast = -1
+    private var memo = ProfileBins.Empty
+
+    fun profile(series: Series, visible: IntRange): ProfileBins {
+        if (memoSeries !== series || memoFirst != visible.first || memoLast != visible.last) {
+            memo = profileBins(series, visible, bins)
+            memoSeries = series
+            memoFirst = visible.first
+            memoLast = visible.last
+        }
+        return memo
+    }
+}
+
 internal sealed interface PaneScale {
     data object Auto : PaneScale
     data object FromZero : PaneScale
@@ -110,6 +130,7 @@ internal fun Mark.eachValue(slot: Int, action: (Double) -> Unit) {
             b.at(offset)
         }
         is DotMark -> values.at(offset)
+        is ProfileMark -> Unit
     }
 }
 
