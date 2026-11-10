@@ -116,4 +116,10 @@ class MarketDepthTest {
         assertNull(onlyAsks.cumulativeAt(50.0))
         assertEquals(5L, onlyAsks.cumulativeAt(100.0))
     }
+
+    @Test
+    fun coerceWithinClampsToZeroWhenTheMaximumIsNegative() {
+        assertEquals(0f, 5f.coerceWithin(-1f), 0f)
+        assertEquals(3f, 3f.coerceWithin(10f), 0f)
+    }
 }

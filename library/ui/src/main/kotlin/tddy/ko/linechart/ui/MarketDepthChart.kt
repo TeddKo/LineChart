@@ -135,7 +135,7 @@ private fun depthDescription(depth: Depth, priceFormatter: (Long) -> String): St
 /**
  * This value limited to zero through [max], zero when [max] is negative.
  */
-private fun Float.coerceWithin(max: Float): Float = coerceAtMost(max).coerceAtLeast(0f)
+internal fun Float.coerceWithin(max: Float): Float = coerceAtMost(max).coerceAtLeast(0f)
 
 private class DepthGeometry(val plotWidth: Float, val plotHeight: Float, val xMin: Double, val xMax: Double, val yMax: Double) {
     fun x(price: Double): Float = ((price - xMin) / (xMax - xMin) * plotWidth).toFloat()
@@ -199,7 +199,7 @@ private fun DrawScope.drawDepth(
     }
 
     if (!cursor.isNaN() && cursorText != null) {
-        val x = cursor.coerceIn(0f, plotWidth)
+        val x = cursor.coerceWithin(plotWidth)
         drawLine(colors.crosshair, Offset(x, 0f), Offset(x, plotHeight), 1f)
         val label = measurer.measure(cursorText, axisStyle.copy(color = colors.background))
         val pad = TagPadding.toPx()
