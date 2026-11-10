@@ -1,6 +1,8 @@
 package tddy.ko.linechart.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.ScrollState
@@ -53,6 +55,19 @@ class LineChartPanelTest {
     @Test
     fun fewerThanTwoItems_drawsAnEmptyBoxWithoutCrash() {
         show(1)
+        rule.onNodeWithTag("chart").assertExists()
+        assertEquals(0f, rule.runOnIdle { state.plot.width })
+    }
+
+    @Test
+    fun chartNarrowerThanThePriceAxis_drawsWithoutCrash() {
+        rule.setContent {
+            state = rememberLineChartState(series(200))
+            Box(Modifier.width(10.dp)) {
+                LineChartPanel(Modifier.testTag("chart"), 300.dp, state)
+            }
+        }
+        rule.waitForIdle()
         rule.onNodeWithTag("chart").assertExists()
         assertEquals(0f, rule.runOnIdle { state.plot.width })
     }

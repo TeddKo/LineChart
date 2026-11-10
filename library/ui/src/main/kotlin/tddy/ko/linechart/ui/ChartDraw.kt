@@ -52,9 +52,10 @@ internal class ChartSpec(
 }
 
 /**
- * Indices of the highest and the lowest value inside [range], candles using high and low and other types the close.
+ * Indices of the highest and the lowest value inside [range], candles using high and low and other types the close, or -1 to -1 for an empty range.
  */
 internal fun extremeIndices(items: List<ChartData>, range: IntRange, type: ChartType): Pair<Int, Int> {
+    if (range.isEmpty()) return -1 to -1
     var high = range.first
     var low = range.first
     for (i in range) {
@@ -132,6 +133,10 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     val main = layout.main
     state.plot = main
     val view = state.view(main.width)
+    if (main.width <= 0f || view.visible.isEmpty()) {
+        state.frame = null
+        return
+    }
     val range = visibleYRange(items, view.visible, spec.type)
     state.frame = Frame(layout, range, view.scroll, view.slot)
 

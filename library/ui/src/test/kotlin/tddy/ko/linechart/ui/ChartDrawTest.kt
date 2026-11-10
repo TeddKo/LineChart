@@ -19,6 +19,12 @@ class ChartDrawTest {
     }
 
     @Test
+    fun extremeIndices_emptyRangeIsNone() {
+        assertEquals(-1 to -1, extremeIndices(items, IntRange.EMPTY, ChartType.Candle))
+        assertEquals(-1 to -1, extremeIndices(items, 4..3, ChartType.Line))
+    }
+
+    @Test
     fun extremeIndices_lineUsesClose() {
         assertEquals(1 to 2, extremeIndices(items, 0..3, ChartType.Line))
     }
