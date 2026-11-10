@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -83,14 +84,19 @@ public fun DepthChart(
     var cursor by remember { mutableFloatStateOf(Float.NaN) }
     val plotWidth = (size.width - axisWidth).coerceAtLeast(0)
     val description = depthDescription(depth, priceFormatter)
-    val cursorPrice = if (cursor.isNaN() || plotWidth == 0) null else {
-        (range.first + cursor.coerceIn(0f, plotWidth.toFloat()) / plotWidth * (range.second - range.first)).roundToLong()
+    val resources = LocalResources.current
+    val cursorText = {
+        val x = cursor
+        if (x.isNaN() || plotWidth == 0) {
+            null
+        } else {
+            val price = (range.first + x.coerceIn(0f, plotWidth.toFloat()) / plotWidth * (range.second - range.first)).roundToLong()
+            depth.cumulativeAt(price.toDouble())?.let { cum ->
+                resources.getString(R.string.linechart_market_depth_cursor, priceFormatter(price), cum)
+            } ?: resources.getString(R.string.linechart_market_depth_cursor_gap, priceFormatter(price))
+        }
     }
-    val cursorText = cursorPrice?.let {
-        depth.cumulativeAt(it.toDouble())?.let { cum ->
-            stringResource(R.string.linechart_market_depth_cursor, priceFormatter(it), cum)
-        } ?: stringResource(R.string.linechart_market_depth_cursor_gap, priceFormatter(it))
-    }
+    val paths = remember(depth) { DepthPaths() }
     Canvas(
         box
             .onSizeChanged { size = it }
@@ -107,10 +113,10 @@ public fun DepthChart(
             }
             .semantics(mergeDescendants = true) {
                 contentDescription = description
-                cursorText?.let { stateDescription = it }
+                cursorText()?.let { stateDescription = it }
             },
     ) {
-        drawDepth(depth, range, yMax, yTicks, axisWidth.toFloat(), cursor, cursorText, measurer, colors, priceFormatter, textStyle)
+        drawDepth(depth, paths, range, yMax, yTicks, axisWidth.toFloat(), cursor, cursorText(), measurer, colors, priceFormatter, textStyle)
     }
 }
 
@@ -139,6 +145,7 @@ private class DepthGeometry(val plotWidth: Float, val plotHeight: Float, val xMi
 
 private fun DrawScope.drawDepth(
     depth: Depth,
+    paths: DepthPaths,
     range: Pair<Double, Double>,
     yMax: Double,
     yTicks: List<Long>,
@@ -175,8 +182,9 @@ private fun DrawScope.drawDepth(
         lastRight = left + label.size.width
     }
 
-    drawSide(bidPath(depth, g), colors.up, g, stroke)
-    drawSide(askPath(depth, g), colors.down, g, stroke)
+    paths.update(depth, g)
+    drawSide(paths.bid, paths.bidFill, colors.up, stroke)
+    drawSide(paths.ask, paths.askFill, colors.down, stroke)
 
     depth.mid?.let { mid ->
         val x = g.x(mid)
@@ -203,16 +211,43 @@ private fun DrawScope.drawDepth(
     }
 }
 
-private fun DrawScope.drawSide(path: Path, color: Color, g: DepthGeometry, stroke: Stroke) {
-    val fill = Path().apply { addPath(path) }
-    fill.lineTo(fill.getBounds().right, g.plotHeight)
-    fill.lineTo(fill.getBounds().left, g.plotHeight)
-    fill.close()
+private fun DrawScope.drawSide(path: Path, fill: Path, color: Color, stroke: Stroke) {
     drawPath(fill, color.copy(alpha = FILL_ALPHA))
     drawPath(path, color, style = stroke)
 }
 
-private fun bidPath(depth: Depth, g: DepthGeometry): Path = Path().apply {
+/**
+ * Step paths and fills of both sides of one [Depth], rebuilt only when the geometry they were built for changes.
+ */
+private class DepthPaths {
+    val bid = Path()
+    val ask = Path()
+    val bidFill = Path()
+    val askFill = Path()
+    private var key: List<Any>? = null
+
+    fun update(depth: Depth, g: DepthGeometry) {
+        val next = listOf(g.plotWidth, g.plotHeight, g.xMin, g.xMax, g.yMax)
+        if (next == key) return
+        key = next
+        bidPath(bid, depth, g)
+        askPath(ask, depth, g)
+        close(bid, bidFill, g)
+        close(ask, askFill, g)
+    }
+
+    private fun close(line: Path, fill: Path, g: DepthGeometry) {
+        fill.rewind()
+        fill.addPath(line)
+        val bounds = fill.getBounds()
+        fill.lineTo(bounds.right, g.plotHeight)
+        fill.lineTo(bounds.left, g.plotHeight)
+        fill.close()
+    }
+}
+
+private fun bidPath(path: Path, depth: Depth, g: DepthGeometry) = path.apply {
+    rewind()
     val n = depth.bidPrices.size
     if (n == 0) return@apply
     moveTo(0f, g.y(depth.bidCum[n - 1]))
@@ -222,7 +257,8 @@ private fun bidPath(depth: Depth, g: DepthGeometry): Path = Path().apply {
     }
 }
 
-private fun askPath(depth: Depth, g: DepthGeometry): Path = Path().apply {
+private fun askPath(path: Path, depth: Depth, g: DepthGeometry) = path.apply {
+    rewind()
     val n = depth.askPrices.size
     if (n == 0) return@apply
     moveTo(g.x(depth.askPrices[0].toDouble()), g.plotHeight)

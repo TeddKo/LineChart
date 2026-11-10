@@ -303,9 +303,10 @@ private fun DrawScope.drawPlot(state: LineChartState, spec: ChartSpec, frame: Fr
     val labelWidth = spec.measurer.measure(widest, style).size.width
     val stride = labelStride(view.slot, labelWidth + 8f * d)
     val gridBottom = layout.panes.lastOrNull()?.bottom ?: main.bottom
+    val slots = state.slotCount
     for (i in view.visible) {
         if (i % stride != 0) continue
-        val x = xOf(i, state.slotCount, view.scroll, main.width, view.slot)
+        val x = xOf(i, slots, view.scroll, main.width, view.slot)
         if (x < 0f || x > main.right) continue
         if (gridVertical) drawLine(colors.grid, Offset(x, main.top), Offset(x, gridBottom), d)
         val text = spec.axisLabel(series, i, stride)
@@ -316,7 +317,7 @@ private fun DrawScope.drawPlot(state: LineChartState, spec: ChartSpec, frame: Fr
     clipRect(0f, 0f, main.width * state.entry.value, size.height) {
         computed.panes.forEachIndexed { k, pane ->
             val rect = frame.bodies[k]
-            val context = PaneContext(rect, frame.paneRanges[k], view, state.slotCount, series)
+            val context = PaneContext(rect, frame.paneRanges[k], view, slots, series)
             clipRect(rect.left, rect.top, rect.right, rect.bottom) {
                 drawLevels(pane.levels, spec, context)
                 for (mark in computed.paneMarks[k]) drawMark(mark, spec, context)
@@ -324,7 +325,7 @@ private fun DrawScope.drawPlot(state: LineChartState, spec: ChartSpec, frame: Fr
         }
         clipRect(main.left, main.top, main.right, main.bottom) {
             if (spec.type == ChartType.Candle) drawCandles(state, spec, view, range, main) else drawSeries(state, spec, view, range, main)
-            val context = PaneContext(main, range, view, state.slotCount, series)
+            val context = PaneContext(main, range, view, slots, series)
             for (marks in computed.overlayMarks) for (mark in marks) drawMark(mark, spec, context)
         }
     }
@@ -360,10 +361,11 @@ private fun DrawScope.drawCandles(state: LineChartState, spec: ChartSpec, view: 
     val items = state.items
     val body = candleBodyWidth(view.slot)
     val wick = max(1f, density)
+    val slots = state.slotCount
     for (i in view.visible) {
         val item = items[i]
         val color = spec.colors.forDirection(direction(items, i, ChartType.Candle))
-        val x = xOf(i, state.slotCount, view.scroll, main.width, view.slot)
+        val x = xOf(i, slots, view.scroll, main.width, view.slot)
         val open = yOf(item.open, range, main.top, main.height)
         val close = yOf(item.cumulativeProfit, range, main.top, main.height)
         val top = yOf(maxOf(item.high, item.open, item.cumulativeProfit), range, main.top, main.height)
@@ -407,11 +409,12 @@ private fun DrawScope.drawExtremes(state: LineChartState, spec: ChartSpec, view:
     val main = frame.layout.main
     val (high, low) = extremeIndices(items, view.visible, spec.type)
     val candle = spec.type == ChartType.Candle
+    val slots = state.slotCount
     for ((i, isHigh) in listOf(high to true, low to false)) {
         val value = if (candle) (if (isHigh) items[i].high else items[i].low) else items[i].cumulativeProfit
         val text = spec.priceText(value, frame.computed)
         val width = spec.measurer.measure(text, style).size.width
-        val x = (xOf(i, state.slotCount, view.scroll, main.width, view.slot) - width / 2f).coerceIn(0f, max(0f, main.right - width))
+        val x = (xOf(i, slots, view.scroll, main.width, view.slot) - width / 2f).coerceIn(0f, max(0f, main.right - width))
         val y = yOf(value, frame.range, main.top, main.height)
         val top = if (isHigh) (y - lineH - 2f * density).coerceAtLeast(main.top) else (y + 2f * density).coerceAtMost(main.bottom - lineH)
         drawText(spec.measurer, text, Offset(x, top), style)
@@ -434,8 +437,9 @@ private fun DrawScope.drawSeries(
     var px = 0f
     var py = 0f
     var firstX = 0f
+    val slots = state.slotCount
     for (i in from..to) {
-        val x = xOf(i, state.slotCount, view.scroll, main.width, view.slot)
+        val x = xOf(i, slots, view.scroll, main.width, view.slot)
         val y = yOf(items[i].cumulativeProfit, range, main.top, main.height)
         if (i == from) {
             path.moveTo(x, y)
