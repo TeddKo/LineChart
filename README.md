@@ -37,7 +37,7 @@ dependencies {
 
 Requirements:
 
-* minSdk 23, compileSdk 36 or newer
+* minSdk 23, compileSdk 37 or newer
 * Kotlin 2.2 or newer (stdlib 2.2.21)
 * Compose ui and foundation 1.12.1 or newer
 * `linechart-orderbook` needs only the Kotlin stdlib and runs on any JVM
@@ -189,7 +189,7 @@ The main pane range is the visible low and high with 5 percent padding. Bollinge
 
 | Field | Default | Meaning |
 |---|---|---|
-| `scale` | `Linear` | `Linear`, `Log` (log10 mapping, ticks at nice prices, falls back to linear when the range is not positive) or `Percent` (change against the base line, the previous close when the base line is `None`) |
+| `scale` | `Linear` | `Linear`, `Log` (log10 mapping, ticks at nice prices, falls back to linear while any visible value, indicator mark or base line value is zero or negative) or `Percent` (change against the base line, the previous close when the base line is `None`) |
 | `axisSide` | `Right` | `Left` or `Right` |
 | `rightMargin` | 3 | blank candle slots after the last candle; the larger of it and an indicator extension applies, clamped to half the plot |
 | `grid` | `Horizontal` | `None`, `Horizontal`, `Vertical`, `Both` |
@@ -211,9 +211,9 @@ The previous session close is the close of the last candle of the previous local
 ## Multi-pane layout and height rules
 
 * `chartHeight` (default 300.dp) is the height of the main chart area with its header and time axis
-* Every pane adds `paneHeight × weight` (default 80.dp × 1) plus a 4.dp gap, so the default Volume pane gives a total of 384.dp
+* Every pane adds `paneHeight × weight` (default 80.dp × 1) plus a 4.dp gap, so the default Volume pane gives a total of 384.dp; dragging a separator moves height between the areas and keeps the total
 * Each pane has its own Y axis, one-line legend, and crosshair value tag with its own format; the legend strip sits above the plot
-* The header wraps its legend lines and keeps the tallest wrap seen for the series and width, so the chart does not jump while the crosshair moves
+* The header wraps its legend lines and keeps the tallest wrap seen until the series, the indicators or the width change, so the chart does not jump while the crosshair moves
 * Pane resize: long press within 12dp of a separator, then drag. Minimum 120dp for the main area and 40dp for a pane. Heights live in `LineChartState`, survive data updates and indicator parameter changes, follow their indicator when another pane is removed or inserted, and are not saved across recreation
 
 ## Real-time updates and `LineChartState`
