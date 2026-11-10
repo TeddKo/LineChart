@@ -4,7 +4,7 @@ import java.util.TimeZone
 
 private const val DAY_MILLIS = 86_400_000L
 
-private fun localDay(date: Long, zone: TimeZone): Long = Math.floorDiv(date + zone.getOffset(date), DAY_MILLIS)
+internal fun localDay(date: Long, zone: TimeZone): Long = Math.floorDiv(date + zone.getOffset(date), DAY_MILLIS)
 
 /**
  * Indices of the session before the one of the last item: the previous local day for intraday series, the previous candle otherwise, empty when none exists.
