@@ -29,17 +29,17 @@ class MarketDepthTest {
     @Test
     fun midAndSpread() {
         val depth = depthOf(bids, asks)
-        assertEquals(97.5, depth.mid!!, 0.0)
+        assertEquals(97.5, checkNotNull(depth.mid), 0.0)
         assertEquals(5L, depth.spread)
     }
 
     @Test
     fun oneSidedBookHasMidButNoSpread() {
         val onlyBids = depthOf(bids, emptyList())
-        assertEquals(95.0, onlyBids.mid!!, 0.0)
+        assertEquals(95.0, checkNotNull(onlyBids.mid), 0.0)
         assertNull(onlyBids.spread)
         val onlyAsks = depthOf(emptyList(), asks)
-        assertEquals(100.0, onlyAsks.mid!!, 0.0)
+        assertEquals(100.0, checkNotNull(onlyAsks.mid), 0.0)
         assertNull(onlyAsks.spread)
     }
 
@@ -54,7 +54,7 @@ class MarketDepthTest {
 
     @Test
     fun xRangeIsCenteredOnMidWithMargin() {
-        val range = depthXRange(depthOf(bids, asks))!!
+        val range = checkNotNull(depthXRange(depthOf(bids, asks)))
         val half = (97.5 - 80.0) * 1.05
         assertEquals(97.5 - half, range.first, 1e-9)
         assertEquals(97.5 + half, range.second, 1e-9)
@@ -62,7 +62,7 @@ class MarketDepthTest {
 
     @Test
     fun xRangeUsesFarthestSide() {
-        val range = depthXRange(depthOf(listOf(MarketLevel(99, 1)), listOf(MarketLevel(101, 1), MarketLevel(140, 1))))!!
+        val range = checkNotNull(depthXRange(depthOf(listOf(MarketLevel(99, 1)), listOf(MarketLevel(101, 1), MarketLevel(140, 1)))))
         val half = (140.0 - 100.0) * 1.05
         assertEquals(100.0 - half, range.first, 1e-9)
         assertEquals(100.0 + half, range.second, 1e-9)
@@ -70,14 +70,14 @@ class MarketDepthTest {
 
     @Test
     fun xRangeOfSingleLevelStillHasWidth() {
-        val range = depthXRange(depthOf(listOf(MarketLevel(100, 1)), emptyList()))!!
+        val range = checkNotNull(depthXRange(depthOf(listOf(MarketLevel(100, 1)), emptyList())))
         assertTrue(range.second > range.first)
         assertEquals(100.0, (range.first + range.second) / 2, 1e-9)
     }
 
     @Test
     fun xRangeOfOneSideSpansItsLevels() {
-        val range = depthXRange(depthOf(emptyList(), listOf(MarketLevel(100, 1), MarketLevel(120, 1))))!!
+        val range = checkNotNull(depthXRange(depthOf(emptyList(), listOf(MarketLevel(100, 1), MarketLevel(120, 1)))))
         assertTrue(range.first < 100.0 && range.second > 120.0)
     }
 

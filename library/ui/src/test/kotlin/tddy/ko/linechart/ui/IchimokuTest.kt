@@ -55,7 +55,7 @@ class IchimokuTest {
         assertEquals(0.12f, fill.alpha, 1e-6f)
         assertEquals(2, fill.offset)
         assertEquals(2.25, fill.a[2], 1e-9)
-        assertEquals(2.5, fill.b!![3], 1e-9)
+        assertEquals(2.5, checkNotNull(fill.b)[3], 1e-9)
     }
 
     @Test

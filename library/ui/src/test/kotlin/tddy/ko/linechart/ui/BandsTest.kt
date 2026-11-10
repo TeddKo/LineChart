@@ -40,8 +40,8 @@ class BandsTest {
     @Test
     fun bollinger_addsAFillBetweenTheBandsInTheBandColor() {
         val fill = BollingerBands(3).marks(ascending, ChartSettings()).filterIsInstance<FillMark>().single()
-        assertEquals(0.08f, fill.color!!.alpha, 1e-2f)
-        assertEquals(BollingerColors[1].red, fill.color!!.red, 1e-2f)
+        assertEquals(0.08f, checkNotNull(fill.color).alpha, 1e-2f)
+        assertEquals(BollingerColors[1].red, checkNotNull(fill.color).red, 1e-2f)
     }
 
     @Test

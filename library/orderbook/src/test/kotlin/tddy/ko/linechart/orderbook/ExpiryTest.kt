@@ -16,10 +16,10 @@ class ExpiryTest {
     @Test
     fun expireReclaimsSortedByExpiryThenId() {
         val e = engine()
-        val late = e.limit(Side.Buy, 90, 1, expiresAt = 3_000).orderId!!
-        val early = e.limit(Side.Sell, 100, 1, expiresAt = 2_000).orderId!!
-        val tie = e.limit(Side.Buy, 80, 1, expiresAt = 2_000).orderId!!
-        val keep = e.limit(Side.Buy, 70, 1).orderId!!
+        val late = checkNotNull(e.limit(Side.Buy, 90, 1, expiresAt = 3_000).orderId)
+        val early = checkNotNull(e.limit(Side.Sell, 100, 1, expiresAt = 2_000).orderId)
+        val tie = checkNotNull(e.limit(Side.Buy, 80, 1, expiresAt = 2_000).orderId)
+        val keep = checkNotNull(e.limit(Side.Buy, 70, 1).orderId)
         assertTrue(e.expire(1_999).isEmpty())
         now = 3_000
         assertEquals(listOf(early, tie, late), e.expire().map { it.id })
@@ -32,9 +32,9 @@ class ExpiryTest {
     @Test
     fun expireSkipsCanceledFilledAndReplacedEntries() {
         val e = engine()
-        val canceled = e.limit(Side.Buy, 90, 1, expiresAt = 2_000).orderId!!
-        val filled = e.limit(Side.Sell, 100, 1, expiresAt = 2_000).orderId!!
-        val modified = e.limit(Side.Buy, 80, 1, expiresAt = 2_000).orderId!!
+        val canceled = checkNotNull(e.limit(Side.Buy, 90, 1, expiresAt = 2_000).orderId)
+        val filled = checkNotNull(e.limit(Side.Sell, 100, 1, expiresAt = 2_000).orderId)
+        val modified = checkNotNull(e.limit(Side.Buy, 80, 1, expiresAt = 2_000).orderId)
         e.cancel(canceled)
         e.limit(Side.Buy, 100, 1)
         e.modify(modified, expiresAt = 9_000)
@@ -48,7 +48,7 @@ class ExpiryTest {
     fun matchingSkipsExpiredRestingLazily() {
         val e = engine()
         e.limit(Side.Sell, 100, 1, expiresAt = 2_000)
-        val live = e.limit(Side.Sell, 110, 1).orderId!!
+        val live = checkNotNull(e.limit(Side.Sell, 110, 1).orderId)
         now = 2_000
         val result = e.limit(Side.Buy, 120, 1)
         assertEquals(live, result.fills.single().sellOrderId)

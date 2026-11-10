@@ -16,7 +16,7 @@ class CancelModifyTest {
     @Test
     fun cancelRemovesOrderAndReturnsIt() {
         val e = engine()
-        val id = e.limit(Side.Buy, 90, 3).orderId!!
+        val id = checkNotNull(e.limit(Side.Buy, 90, 3).orderId)
         val canceled = e.cancel(id)
         assertEquals(id, canceled?.id)
         assertEquals(3, canceled?.quantity)
@@ -33,7 +33,7 @@ class CancelModifyTest {
     @Test
     fun orderExposesRemainingQuantity() {
         val e = engine()
-        val id = e.limit(Side.Sell, 100, 5).orderId!!
+        val id = checkNotNull(e.limit(Side.Sell, 100, 5).orderId)
         e.limit(Side.Buy, 100, 2)
         val order = e.order(id)
         assertNotNull(order)
@@ -47,8 +47,8 @@ class CancelModifyTest {
     @Test
     fun modifyKeepsIdUsesRemainingAndLosesPriority() {
         val e = engine()
-        val first = e.limit(Side.Sell, 100, 3).orderId!!
-        val second = e.limit(Side.Sell, 100, 1).orderId!!
+        val first = checkNotNull(e.limit(Side.Sell, 100, 3).orderId)
+        val second = checkNotNull(e.limit(Side.Sell, 100, 1).orderId)
         e.limit(Side.Buy, 100, 1)
         val result = e.modify(first, price = 100, expiresAt = 5_000)
         assertEquals(first, result.orderId)
@@ -61,7 +61,7 @@ class CancelModifyTest {
     @Test
     fun modifyPriceMovesLevel() {
         val e = engine()
-        val id = e.limit(Side.Buy, 90, 2).orderId!!
+        val id = checkNotNull(e.limit(Side.Buy, 90, 2).orderId)
         e.modify(id, price = 95)
         assertEquals(listOf(BookLevel(95, 2)), e.snapshot("A").bids)
     }
@@ -70,7 +70,7 @@ class CancelModifyTest {
     fun modifyCanCrossAndMatch() {
         val e = engine()
         e.limit(Side.Sell, 100, 1)
-        val id = e.limit(Side.Buy, 90, 3).orderId!!
+        val id = checkNotNull(e.limit(Side.Buy, 90, 3).orderId)
         val result = e.modify(id, price = 100)
         assertEquals(1, result.filledQuantity)
         assertEquals(2, result.restingQuantity)
@@ -82,7 +82,7 @@ class CancelModifyTest {
     fun rejectedModifyKeepsOriginal() {
         val e = engine(MatchingPolicy(allowCrossing = false, tickSize = 10))
         e.limit(Side.Sell, 100, 1)
-        val id = e.limit(Side.Buy, 90, 2).orderId!!
+        val id = checkNotNull(e.limit(Side.Buy, 90, 2).orderId)
         assertEquals(RejectReason.InvalidPrice, e.modify(id, price = 95).reason)
         assertEquals(RejectReason.Crossing, e.modify(id, price = 100).reason)
         assertEquals(RejectReason.InvalidExpiry, e.modify(id, expiresAt = now).reason)
