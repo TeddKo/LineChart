@@ -43,7 +43,8 @@ internal class Frame(
 )
 
 /**
- * Display configuration and reusable draw resources of one panel, including the header and legend text of the last drawn [cachedIndex] of [cachedSeries] and [cachedComputed].
+ * Display configuration and reusable draw resources of one panel, including the wrapped header and overlay legend lines of the last drawn [cachedIndex] of [cachedSeries] and [cachedComputed] at [cachedWidth],
+ * and the line count [reservedLines] of each of them at the last item, which sizes the header and caps the lines drawn.
  */
 internal class ChartSpec(
     val type: ChartType,
@@ -61,8 +62,12 @@ internal class ChartSpec(
     var cachedSeries: Series? = null
     var cachedComputed: Computed? = null
     var cachedIndex: Int = -1
-    var header: AnnotatedString = AnnotatedString("")
-    var overlayLegends: List<AnnotatedString> = emptyList()
+    var legends: List<List<AnnotatedString>> = emptyList()
+    var cachedWidth: Float = -1f
+    var reservedSeries: Series? = null
+    var reservedComputed: Computed? = null
+    var reservedWidth: Float = -1f
+    var reservedLines: List<Int> = emptyList()
     var paneLegends: List<AnnotatedString> = emptyList()
     private var dashDensity = 0f
     private var dashEffect: PathEffect? = null
@@ -158,6 +163,19 @@ private fun ChartSpec.axisLabel(series: Series, i: Int, stride: Int): String {
 internal fun ChartSpec.priceText(value: Double, computed: Computed): String =
     if (computed.settings.scale == PriceScale.Percent && computed.base > 0.0) percentText(value, computed.base) else priceFormatter(value)
 
+/**
+ * Line count of the header and of each overlay legend at the last item when wrapped to [width], kept while the series, the indicators and [width] stay the same.
+ */
+private fun ChartSpec.reserveLegendLines(series: Series, computed: Computed, width: Float): List<Int> {
+    if (reservedSeries !== series || reservedComputed !== computed || reservedWidth != width) {
+        reservedSeries = series
+        reservedComputed = computed
+        reservedWidth = width
+        reservedLines = wrappedLegends(series, computed, series.items.lastIndex, width).map { it.size }
+    }
+    return reservedLines
+}
+
 private fun mainTicks(range: YRange, computed: Computed, target: Int): List<Double> = when (computed.settings.scale) {
     PriceScale.Log -> if (range.log) logTicks(range.min, range.max, target) else niceTicks(range.min, range.max, target)
     PriceScale.Percent -> percentTicks(range.min, range.max, computed.base, target)
@@ -202,7 +220,6 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     val settings = computed.settings
     val style = spec.textStyle.copy(color = colors.text)
     val lineH = spec.measurer.measure("0", spec.textStyle).size.height.toFloat()
-    val headerH = (if (settings.legend) 1 + computed.overlays.size else 0) * lineH + 6f * d
     val timeH = lineH + 4f * d
     if (n < 2) {
         state.plot = Rect.Zero
@@ -222,6 +239,7 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
         for (tick in paneTicks(pane, range)) labelW = max(labelW, spec.measurer.measure(pane.format(tick), style).size.width)
     }
     state.axisW = axisWidth(labelW.toFloat(), d)
+    val headerH = (if (settings.legend) spec.reserveLegendLines(series, computed, size.width - state.axisW).sum() else 0) * lineH + 6f * d
     val axisLeft = settings.axisSide == AxisSide.Left
     val layout = paneLayout(
         size.width, size.height, headerH, timeH, state.axisW, 4f * d,

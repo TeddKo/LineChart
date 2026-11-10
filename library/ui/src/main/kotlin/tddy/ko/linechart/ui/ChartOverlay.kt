@@ -29,6 +29,26 @@ internal fun formatChange(percent: Double): String = String.format(Locale.ROOT, 
  */
 internal fun maLegend(period: Int, unit: String): String = "MA$period$unit"
 
+/**
+ * Lines of [text] no wider than [maxWidth] through [measure], broken between its items that end in two spaces, an item wider than [maxWidth] standing alone on its line.
+ */
+internal fun wrapLegend(text: AnnotatedString, maxWidth: Float, measure: (AnnotatedString) -> Float): List<AnnotatedString> {
+    val lines = ArrayList<AnnotatedString>()
+    var start = 0
+    var lineStart = 0
+    while (start < text.length) {
+        val found = text.text.indexOf("  ", start)
+        val end = if (found < 0) text.length else found + 2
+        if (start > lineStart && measure(text.subSequence(lineStart, end)) > maxWidth) {
+            lines += text.subSequence(lineStart, start)
+            lineStart = start
+        }
+        start = end
+    }
+    lines += text.subSequence(lineStart, text.length)
+    return lines
+}
+
 internal fun DrawScope.drawOverlay(state: LineChartState, spec: ChartSpec, pulse: Float?) {
     val frame = state.frame ?: return
     if (state.series.items.size < 2) return
@@ -51,18 +71,22 @@ private fun DrawScope.drawOverlayPlot(state: LineChartState, spec: ChartSpec, pu
     val colors = spec.colors
     val style = spec.textStyle.copy(color = colors.text)
     val lineH = spec.measurer.measure("0", spec.textStyle).size.height.toFloat()
-    if (spec.cachedSeries !== series || spec.cachedComputed !== computed || spec.cachedIndex != index) {
+    if (spec.cachedSeries !== series || spec.cachedComputed !== computed || spec.cachedIndex != index || spec.cachedWidth != main.width) {
         spec.cachedSeries = series
         spec.cachedComputed = computed
         spec.cachedIndex = index
-        spec.header = header(spec, series, index)
-        spec.overlayLegends = computed.overlays.mapIndexed { k, overlay -> overlay.legend(spec, series, computed.overlayMarks[k], index) }
+        spec.cachedWidth = main.width
+        spec.legends = spec.wrappedLegends(series, computed, index, main.width)
         spec.paneLegends = computed.panes.mapIndexed { k, pane -> pane.legend(spec, series, computed.paneMarks[k], index) }
     }
     if (computed.settings.legend) {
-        drawText(spec.measurer, spec.header, Offset(0f, 0f), style, softWrap = false, maxLines = 1)
-        spec.overlayLegends.forEachIndexed { k, legend ->
-            drawText(spec.measurer, legend, Offset(0f, (k + 1) * lineH), style, softWrap = false, maxLines = 1)
+        var row = 0
+        spec.legends.forEachIndexed { k, lines ->
+            for (line in lines.take(spec.reservedLines.getOrElse(k) { 1 })) {
+                drawText(spec.measurer, line, Offset(0f, row * lineH), style, softWrap = false, maxLines = 1)
+                row++
+            }
+            row += (spec.reservedLines.getOrElse(k) { 1 } - lines.size).coerceAtLeast(0)
         }
         spec.paneLegends.forEachIndexed { k, legend ->
             drawText(spec.measurer, legend, Offset(0f, layout.panes[k].top), style, softWrap = false, maxLines = 1)
@@ -109,6 +133,15 @@ private fun DrawScope.drawOverlayPlot(state: LineChartState, spec: ChartSpec, pu
 private fun AnnotatedString.Builder.pair(label: String, value: String, labelColor: Color, valueColor: Color) {
     withStyle(SpanStyle(color = labelColor)) { append("$label ") }
     withStyle(SpanStyle(color = valueColor)) { append("$value  ") }
+}
+
+/**
+ * Header and overlay legend of the item [i], each wrapped to [width].
+ */
+internal fun ChartSpec.wrappedLegends(series: Series, computed: Computed, i: Int, width: Float): List<List<AnnotatedString>> {
+    val measure = { text: AnnotatedString -> measurer.measure(text, textStyle).size.width.toFloat() }
+    val legends = listOf(header(this, series, i)) + computed.overlays.mapIndexed { k, overlay -> overlay.legend(this, series, computed.overlayMarks[k], i) }
+    return legends.map { wrapLegend(it, width, measure) }
 }
 
 private fun header(spec: ChartSpec, series: Series, i: Int): AnnotatedString {
