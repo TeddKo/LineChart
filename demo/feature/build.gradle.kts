@@ -10,6 +10,7 @@ android {
 dependencies {
     implementation(projects.demo.designSystem)
     implementation(projects.library.ui)
+    implementation(projects.library.orderbook)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.activity)
     implementation(libs.androidx.core.ktx)

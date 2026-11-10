@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import tddy.ko.linechart.feature.market.MarketSimulator
 import tddy.ko.linechart.ui.AxisSide
 import tddy.ko.linechart.ui.BaseLine
 import tddy.ko.linechart.ui.ChartColors
@@ -78,6 +79,7 @@ private val DefaultMaLines = MovingAverage().let { ma ->
 }
 
 class DemoViewModel : ViewModel() {
+    val market by lazy { MarketSimulator() }
     var overlays by mutableStateOf(listOf(Catalog.spec("ma").entry()))
     var panes by mutableStateOf(listOf(Catalog.spec("vol").entry()))
     var maLines by mutableStateOf(DefaultMaLines)
