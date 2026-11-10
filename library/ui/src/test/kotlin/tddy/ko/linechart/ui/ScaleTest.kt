@@ -77,15 +77,11 @@ class ScaleTest {
     }
 
     @Test
-    fun sma_usesPrefixSumsAndNaNWhenInsufficient() {
-        val items = listOf(1.0, 2.0, 3.0, 4.0, 5.0).map { ChartData(it, 0L) }
-        val prefix = prefixSums(items)
-        assertEquals(6, prefix.size)
-        assertTrue(sma(prefix, 1, 3).isNaN())
-        assertEquals(2.0, sma(prefix, 2, 3), 1e-9)
-        assertEquals(4.0, sma(prefix, 4, 3), 1e-9)
-        assertEquals(5.0, sma(prefix, 4, 1), 1e-9)
-        assertTrue(sma(prefix, 4, 0).isNaN())
+    fun visibleYRange_includesOverlayMarksInTheVisibleRange() {
+        val items = listOf(candle(10.0, 12.0, 20.0, 0.0), candle(15.0, 10.0, 100.0, 5.0))
+        val mark = LineMark("", doubleArrayOf(Double.NaN, 200.0), androidx.compose.ui.graphics.Color.Red, androidx.compose.ui.unit.Dp.Hairline)
+        val range = visibleYRange(items, 0..1, ChartType.Candle, listOf(mark))
+        assertEquals(200.0 + 200.0 * 0.05, range.max, 1e-9)
     }
 
     @Test

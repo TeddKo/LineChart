@@ -8,7 +8,6 @@ package tddy.ko.linechart.ui
  * @property hasVolume whether any item carries a volume
  */
 internal class Series(val items: List<ChartData>) {
-    val prefix: DoubleArray = prefixSums(items)
     val timeAxis: Boolean
     val stepMs: Long
     val hasVolume: Boolean = items.any { it.volume > 0.0 }

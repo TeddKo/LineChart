@@ -378,6 +378,11 @@ public class LineChartState internal constructor(
         private set
 
     internal val items: List<ChartData> get() = series.items
+    private var wantedOverlays: List<Overlay> = emptyList()
+    private var wantedPanes: List<PaneIndicator> = emptyList()
+    private var wantedSettings: ChartSettings? = null
+    internal var computed: Computed by mutableStateOf(Computed.Empty)
+        private set
     internal var scroll: Float by mutableFloatStateOf(0f)
     private var followOnRelease = false
     internal var slot: Float by mutableFloatStateOf(Float.NaN)
@@ -454,8 +459,25 @@ public class LineChartState internal constructor(
         val limited = if (maxDataPoints > 0 && items.size > maxDataPoints) items.takeLast(maxDataPoints) else items
         val next = nextScroll(scroll, appendedCount(this.items, limited), crosshair.isSpecified)
         series = Series(limited)
+        recompute()
         val width = plot.width
         scroll = if (width > 0f) clampScroll(next, slotCount, width, slotFor(width)) else next
+    }
+
+    /**
+     * Indicators and settings of the panel, recomputed only when one of them differs from the last call.
+     */
+    internal fun setIndicators(overlays: List<Overlay>, panes: List<PaneIndicator>, settings: ChartSettings) {
+        if (overlays == wantedOverlays && panes == wantedPanes && settings == wantedSettings) return
+        wantedOverlays = overlays
+        wantedPanes = panes
+        wantedSettings = settings
+        recompute()
+        pad = totalPad(settings.rightMargin, computed.overlays.maxOfOrNull { it.rightPad } ?: 0)
+    }
+
+    private fun recompute() {
+        computed = computeIndicators(series, wantedOverlays, wantedPanes, wantedSettings ?: ChartSettings(), computed)
     }
 
     internal fun slotPx(): Float = slotFor(plot.width)

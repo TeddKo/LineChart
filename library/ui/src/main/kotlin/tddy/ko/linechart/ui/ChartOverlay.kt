@@ -36,6 +36,7 @@ internal fun DrawScope.drawOverlay(state: LineChartState, spec: ChartSpec, pulse
     if (n < 2) return
     val d = density
     val layout = frame.layout
+    val computed = frame.computed
     val main = layout.main
     val slot = state.slotFor(main.width)
     val slots = state.slotCount
@@ -45,26 +46,35 @@ internal fun DrawScope.drawOverlay(state: LineChartState, spec: ChartSpec, pulse
     val colors = spec.colors
     val style = spec.textStyle.copy(color = colors.text)
     val lineH = spec.measurer.measure("0", spec.textStyle).size.height.toFloat()
-    if (spec.cachedSeries !== series || spec.cachedIndex != index) {
+    if (spec.cachedSeries !== series || spec.cachedComputed !== computed || spec.cachedIndex != index) {
         spec.cachedSeries = series
+        spec.cachedComputed = computed
         spec.cachedIndex = index
         spec.header = header(spec, series, index)
-        spec.legend = legend(spec, series, index)
+        spec.overlayLegends = computed.overlays.mapIndexed { k, overlay -> overlay.legend(spec, series, computed.overlayMarks[k], index) }
+        spec.paneLegends = computed.panes.mapIndexed { k, pane -> pane.legend(spec, series, computed.paneMarks[k], index) }
     }
     drawText(spec.measurer, spec.header, Offset(0f, 0f), style, softWrap = false, maxLines = 1)
-    if (spec.maPeriods.isNotEmpty()) {
-        drawText(spec.measurer, spec.legend, Offset(0f, lineH), style, softWrap = false, maxLines = 1)
+    spec.overlayLegends.forEachIndexed { k, legend ->
+        drawText(spec.measurer, legend, Offset(0f, (k + 1) * lineH), style, softWrap = false, maxLines = 1)
+    }
+    spec.paneLegends.forEachIndexed { k, legend ->
+        drawText(spec.measurer, legend, Offset(0f, layout.panes[k].top), style, softWrap = false, maxLines = 1)
     }
     if (cross.isSpecified) {
         val x = xOf(index, slots, scroll, main.width, slot)
-        val y = cross.y.coerceIn(main.top, main.bottom)
+        val paneIndex = layout.panes.indexOfFirst { cross.y in it.top..it.bottom }
+        val rect = if (paneIndex >= 0) layout.panes[paneIndex] else main
+        val range = if (paneIndex >= 0) frame.paneRanges[paneIndex] else frame.range
+        val y = cross.y.coerceIn(rect.top, rect.bottom)
         val dash = spec.dash(d)
         drawLine(colors.crosshair, Offset(x, main.top), Offset(x, layout.timeAxis.top), d, pathEffect = dash)
         drawLine(colors.crosshair, Offset(0f, y), Offset(main.right, y), d, pathEffect = dash)
         val tagStyle = style.copy(color = colors.background)
-        val price = spec.priceFormatter(valueAt(y, frame.range, main.top, main.height))
+        val value = valueAt(y, range, rect.top, rect.height)
+        val price = if (paneIndex >= 0) computed.panes[paneIndex].format(value) else spec.priceFormatter(value)
         val priceH = lineH + 2f * d
-        val priceTop = (y - priceH / 2f).coerceIn(main.top, max(main.top, main.bottom - priceH))
+        val priceTop = (y - priceH / 2f).coerceIn(rect.top, max(rect.top, rect.bottom - priceH))
         drawRect(colors.crosshair, Offset(layout.axis.left, priceTop), Size(layout.axis.width, priceH))
         drawText(spec.measurer, price, Offset(layout.axis.left + 4f * d, priceTop + d), tagStyle)
         val time = spec.tagLabel(series, index)
@@ -106,15 +116,6 @@ private fun header(spec: ChartSpec, series: Series, i: Int): AnnotatedString {
         } else {
             withStyle(SpanStyle(color = colors.text)) { append("${spec.tagLabel(series, i)}  ") }
             withStyle(SpanStyle(color = tone)) { append("${spec.priceFormatter(item.cumulativeProfit)}  $change") }
-        }
-    }
-}
-
-private fun legend(spec: ChartSpec, series: Series, i: Int): AnnotatedString = buildAnnotatedString {
-    spec.maPeriods.forEachIndexed { index, period ->
-        val value = sma(series.prefix, i, period)
-        withStyle(SpanStyle(color = spec.maColor(index))) {
-            append("${maLegend(period, spec.labels.unit)} ${if (value.isNaN()) "-" else spec.priceFormatter(value)}  ")
         }
     }
 }

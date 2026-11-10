@@ -12,9 +12,9 @@ import kotlin.math.pow
 internal class YRange(val min: Double, val max: Double)
 
 /**
- * Padded value range of the items in [range], using low and high for candles and close for line and area.
+ * Padded value range of the items in [range], using low and high for candles and close for line and area, widened by the [marks] values in [range].
  */
-internal fun visibleYRange(items: List<ChartData>, range: IntRange, type: ChartType): YRange {
+internal fun visibleYRange(items: List<ChartData>, range: IntRange, type: ChartType, marks: List<Mark> = emptyList()): YRange {
     if (range.isEmpty()) return YRange(0.0, 1.0)
     var min = Double.POSITIVE_INFINITY
     var max = Double.NEGATIVE_INFINITY
@@ -24,6 +24,12 @@ internal fun visibleYRange(items: List<ChartData>, range: IntRange, type: ChartT
         val high = if (type == ChartType.Candle) item.high else item.cumulativeProfit
         if (low < min) min = low
         if (high > max) max = high
+        for (mark in marks) {
+            mark.eachValue(i) {
+                if (it < min) min = it
+                if (it > max) max = it
+            }
+        }
     }
     val span = max - min
     if (span <= 0.0) {
@@ -57,21 +63,6 @@ internal fun niceTicks(min: Double, max: Double, target: Int): List<Double> {
     val last = floor(max / step + 1e-9).toLong()
     return (first..last).map { it * step }
 }
-
-/**
- * Running sums of the closes with a leading zero, so that the sum of any window is a difference of two entries.
- */
-internal fun prefixSums(items: List<ChartData>): DoubleArray {
-    val sums = DoubleArray(items.size + 1)
-    for (i in items.indices) sums[i + 1] = sums[i] + items[i].cumulativeProfit
-    return sums
-}
-
-/**
- * Simple moving average of [period] closes ending at [i], or NaN while fewer than [period] closes exist.
- */
-internal fun sma(prefix: DoubleArray, i: Int, period: Int): Double =
-    if (period <= 0 || i + 1 < period) Double.NaN else (prefix[i + 1] - prefix[i + 1 - period]) / period
 
 /**
  * Sign of the move at [i]: close versus open for candles, close versus the previous close for line and area.

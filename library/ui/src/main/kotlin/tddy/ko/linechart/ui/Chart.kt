@@ -88,8 +88,8 @@ private fun ChartBody(
         stringResource(R.string.linechart_volume),
         timeframe?.let { stringResource(it.unit.labelRes()) }.orEmpty(),
     )
-    val spec = remember(chartType, colors, overlays, panes, paneHeight, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels) {
-        ChartSpec(chartType, colors, overlays, panes, paneHeight, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels)
+    val spec = remember(chartType, colors, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels, paneHeight) {
+        ChartSpec(chartType, colors, timeframe, priceFormatter, timeFormatter, textStyle, measurer, labels, paneHeight)
     }
     val pulse = if (chartType == ChartType.Candle) {
         null
@@ -101,7 +101,7 @@ private fun ChartBody(
             label = "pulseValue",
         )
     }
-    SideEffect { state.pad = totalPad(settings.rightMargin, overlays.maxOfOrNull { it.rightPad } ?: 0) }
+    SideEffect { state.setIndicators(overlays, panes, settings) }
     LaunchedEffect(state) {
         snapshotFlow { state.itemCount }.first { it > 0 }
         if (state.entry.value < 1f) state.entry.animateTo(1f, tween(ENTRY_MILLIS))

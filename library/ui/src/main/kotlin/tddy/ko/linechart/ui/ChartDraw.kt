@@ -30,38 +30,42 @@ internal val ChartTextStyle = TextStyle(fontSize = 10.sp, fontFeatureSettings = 
 /**
  * Geometry of the last main-layer draw, shared with the overlay layer and the gestures.
  */
-internal class Frame(val layout: PaneLayout, val range: YRange, val scroll: Float, val slot: Float)
+internal class Frame(
+    val layout: PaneLayout,
+    val range: YRange,
+    val paneRanges: List<YRange>,
+    val scroll: Float,
+    val slot: Float,
+    val computed: Computed,
+)
 
 /**
- * Display configuration and reusable draw resources of one panel, including the header and legend text of the last drawn [cachedIndex] of [cachedSeries].
+ * Display configuration and reusable draw resources of one panel, including the header and legend text of the last drawn [cachedIndex] of [cachedSeries] and [cachedComputed].
  */
 internal class ChartSpec(
     val type: ChartType,
     val colors: ChartColors,
-    val overlays: List<Overlay>,
-    val panes: List<PaneIndicator>,
-    val paneHeight: Dp,
     val timeframe: Timeframe?,
     val priceFormatter: (Double) -> String,
     val timeFormatter: ((Long) -> String)?,
     val textStyle: TextStyle,
     val measurer: TextMeasurer,
     val labels: ChartLabels,
+    val paneHeight: Dp,
 ) {
     val path: Path = Path()
-    private val movingAverage = overlays.filterIsInstance<MovingAverage>().firstOrNull()
-    val maPeriods: List<Int> = movingAverage?.periods.orEmpty()
+    val fillPath: Path = Path()
     var cachedSeries: Series? = null
+    var cachedComputed: Computed? = null
     var cachedIndex: Int = -1
     var header: AnnotatedString = AnnotatedString("")
-    var legend: AnnotatedString = AnnotatedString("")
+    var overlayLegends: List<AnnotatedString> = emptyList()
+    var paneLegends: List<AnnotatedString> = emptyList()
     private var dashDensity = 0f
     private var dashEffect: PathEffect? = null
     private val formats = HashMap<String, SimpleDateFormat>()
 
     fun lineColor(color: Color): Color = if (color == Color.Unspecified) colors.text else color
-
-    fun maColor(index: Int): Color = lineColor(movingAverage?.colors?.getOrNull(index) ?: Color.Unspecified)
 
     fun dash(density: Float): PathEffect {
         if (dashEffect == null || dashDensity != density) {
@@ -108,12 +112,20 @@ internal data class ChartLabels(
     val unit: String,
 )
 
-private class View(val scroll: Float, val slot: Float, val visible: IntRange)
+/**
+ * Viewport of a draw pass, [visible] being the item indices in the plot and [window] the slot indices including the blank slots.
+ */
+internal class View(val scroll: Float, val slot: Float, val visible: IntRange, val window: IntRange)
 
-private fun LineChartState.view(plotW: Float): View {
+internal fun LineChartState.view(plotW: Float): View {
     val slot = slotFor(plotW)
     val scroll = clampScroll(scroll, slotCount, plotW, slot)
-    return View(scroll, slot, visibleRange(slotCount, scroll, plotW, slot, itemCount))
+    return View(
+        scroll,
+        slot,
+        visibleRange(slotCount, scroll, plotW, slot, itemCount),
+        visibleRange(slotCount, scroll, plotW, slot),
+    )
 }
 
 internal fun ChartSpec.tagLabel(series: Series, i: Int): String {
@@ -131,6 +143,11 @@ private fun ChartSpec.axisLabel(series: Series, i: Int): String {
     return time(if (newDay) "MM/dd" else pattern, date)
 }
 
+private const val PANE_TICK_TARGET = 3
+
+private fun paneTicks(pane: PaneIndicator, range: YRange): List<Double> =
+    if (pane.levels.isNotEmpty()) pane.levels.toList() else niceTicks(range.min, range.max, PANE_TICK_TARGET)
+
 internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     val d = density
     state.density = d
@@ -139,9 +156,10 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     val series = state.series
     val items = series.items
     val n = items.size
+    val computed = state.computed
     val style = spec.textStyle.copy(color = colors.text)
     val lineH = spec.measurer.measure("0", spec.textStyle).size.height.toFloat()
-    val headerH = (if (spec.maPeriods.isEmpty()) 1 else 2) * lineH + 6f * d
+    val headerH = (1 + computed.overlays.size) * lineH + 6f * d
     val timeH = lineH + 4f * d
     if (n < 2) {
         state.plot = Rect.Zero
@@ -149,12 +167,19 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
         return
     }
     val guessW = size.width - if (state.axisW > 0f) state.axisW else 48f * d
-    val guessRange = visibleYRange(items, state.view(guessW).visible, spec.type)
-    val labelW = (niceTicks(guessRange.min, guessRange.max, state.yAxisTicksCount) + items.last().cumulativeProfit)
+    val guessView = state.view(guessW)
+    val guessRange = visibleYRange(items, guessView.visible, spec.type, computed.scaleMarks)
+    var labelW = (niceTicks(guessRange.min, guessRange.max, state.yAxisTicksCount) + items.last().cumulativeProfit)
         .maxOf { spec.measurer.measure(spec.priceFormatter(it), style).size.width }
+    computed.panes.forEachIndexed { k, pane ->
+        val range = paneYRange(computed.paneMarks[k], guessView.visible, pane.scale, pane.levels)
+        for (tick in paneTicks(pane, range)) labelW = max(labelW, spec.measurer.measure(pane.format(tick), style).size.width)
+    }
     state.axisW = axisWidth(labelW.toFloat(), d)
-    val weights = spec.panes.filter { !it.needsVolume || series.hasVolume }.map { it.weight }
-    val layout = paneLayout(size.width, size.height, headerH, timeH, state.axisW, 4f * d, spec.paneHeight.toPx(), weights, false)
+    val layout = paneLayout(
+        size.width, size.height, headerH, timeH, state.axisW, 4f * d,
+        spec.paneHeight.toPx(), computed.panes.map { it.weight }, false,
+    )
     val main = layout.main
     state.plot = main
     val view = state.view(main.width)
@@ -162,13 +187,25 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
         state.frame = null
         return
     }
-    val range = visibleYRange(items, view.visible, spec.type)
-    state.frame = Frame(layout, range, view.scroll, view.slot)
+    val range = visibleYRange(items, view.visible, spec.type, computed.scaleMarks)
+    val paneRanges = computed.panes.mapIndexed { k, pane ->
+        paneYRange(computed.paneMarks[k], view.visible, pane.scale, pane.levels)
+    }
+    state.frame = Frame(layout, range, paneRanges, view.scroll, view.slot, computed)
 
     for (tick in niceTicks(range.min, range.max, state.yAxisTicksCount)) {
         val y = yOf(tick, range, main.top, main.height)
         drawLine(colors.grid, Offset(0f, y), Offset(main.right, y), d)
         drawText(spec.measurer, spec.priceFormatter(tick), Offset(main.right + 4f * d, y - lineH / 2f), style)
+    }
+    computed.panes.forEachIndexed { k, pane ->
+        val rect = layout.panes[k]
+        for (tick in paneTicks(pane, paneRanges[k])) {
+            val y = yOf(tick, paneRanges[k], rect.top, rect.height)
+            if (pane.levels.isEmpty()) drawLine(colors.grid, Offset(0f, y), Offset(rect.right, y), d)
+            val top = (y - lineH / 2f).coerceIn(rect.top, max(rect.top, rect.bottom - lineH))
+            drawText(spec.measurer, pane.format(tick), Offset(rect.right + 4f * d, top), style)
+        }
     }
 
     val widest = spec.axisLabel(series, n - 1)
@@ -184,12 +221,18 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     }
 
     clipRect(0f, 0f, main.width * state.entry.value, size.height) {
-        layout.panes.firstOrNull()?.takeIf { spec.panes.any { it is Volume } }?.let { volume ->
-            clipRect(volume.left, volume.top, volume.right, volume.bottom) { drawVolume(state, spec, view, volume) }
+        computed.panes.forEachIndexed { k, pane ->
+            val rect = layout.panes[k]
+            val context = PaneContext(rect, paneRanges[k], view, state.slotCount, series)
+            clipRect(rect.left, rect.top, rect.right, rect.bottom) {
+                drawLevels(pane.levels, spec, context)
+                for (mark in computed.paneMarks[k]) drawMark(mark, spec, context)
+            }
         }
         clipRect(main.left, main.top, main.right, main.bottom) {
             if (spec.type == ChartType.Candle) drawCandles(state, spec, view, range, main) else drawSeries(state, spec, view, range, main)
-            drawAverages(state, spec, view, range, main)
+            val context = PaneContext(main, range, view, state.slotCount, series)
+            for (marks in computed.overlayMarks) for (mark in marks) drawMark(mark, spec, context)
         }
     }
     drawLastPrice(state, spec, range, layout, lineH, style)
@@ -198,7 +241,6 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
 
 private fun DrawScope.drawCandles(state: LineChartState, spec: ChartSpec, view: View, range: YRange, main: Rect) {
     val items = state.items
-    val n = items.size
     val body = candleBodyWidth(view.slot)
     val wick = max(1f, density)
     for (i in view.visible) {
@@ -213,42 +255,6 @@ private fun DrawScope.drawCandles(state: LineChartState, spec: ChartSpec, view: 
         if (view.slot >= WICK_ONLY_SLOT) {
             drawRect(color, Offset(x - body / 2f, minOf(open, close)), Size(body, max(1f, abs(open - close))))
         }
-    }
-}
-
-private fun DrawScope.drawVolume(state: LineChartState, spec: ChartSpec, view: View, volume: Rect) {
-    val items = state.items
-    val n = items.size
-    var peak = 0.0
-    for (i in view.visible) peak = max(peak, items[i].volume)
-    if (peak <= 0.0) return
-    val body = candleBodyWidth(view.slot)
-    for (i in view.visible) {
-        val height = (items[i].volume / peak).toFloat() * volume.height
-        val x = xOf(i, state.slotCount, view.scroll, volume.width, view.slot)
-        val color = spec.colors.forDirection(direction(items, i, spec.type)).copy(alpha = VOLUME_ALPHA)
-        drawRect(color, Offset(x - body / 2f, volume.bottom - height), Size(body, height))
-    }
-}
-
-private fun DrawScope.drawAverages(state: LineChartState, spec: ChartSpec, view: View, range: YRange, main: Rect) {
-    val items = state.items
-    val n = items.size
-    val from = (view.visible.first - 1).coerceAtLeast(0)
-    val to = (view.visible.last + 1).coerceAtMost(n - 1)
-    val path = spec.path
-    spec.maPeriods.forEachIndexed { index, period ->
-        path.reset()
-        var started = false
-        for (i in from..to) {
-            val value = sma(state.series.prefix, i, period)
-            if (value.isNaN()) continue
-            val x = xOf(i, state.slotCount, view.scroll, main.width, view.slot)
-            val y = yOf(value, range, main.top, main.height)
-            if (started) path.lineTo(x, y) else path.moveTo(x, y)
-            started = true
-        }
-        if (started) drawPath(path, spec.maColor(index), style = Stroke(density, join = StrokeJoin.Round))
     }
 }
 
@@ -283,7 +289,6 @@ private fun DrawScope.drawExtremes(
     style: TextStyle,
 ) {
     val items = state.items
-    val n = items.size
     val (high, low) = extremeIndices(items, view.visible, spec.type)
     val candle = spec.type == ChartType.Candle
     for ((i, isHigh) in listOf(high to true, low to false)) {
@@ -343,4 +348,3 @@ private fun DrawScope.drawSeries(
 private const val AREA_ALPHA = 0.25f
 private const val BODY_SHARE = 0.7f
 private const val WICK_ONLY_SLOT = 3f
-private const val VOLUME_ALPHA = 0.5f

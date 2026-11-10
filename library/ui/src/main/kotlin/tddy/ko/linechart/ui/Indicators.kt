@@ -86,6 +86,11 @@ public abstract class PaneIndicator internal constructor(public val weight: Floa
 
 private val NO_LEVELS = DoubleArray(0)
 
+/**
+ * Value text of the pane axis, legend and crosshair tag, compact for volume-type panes and two decimals for oscillators.
+ */
+internal fun PaneIndicator.format(value: Double): String = if (compact) formatCompact(value) else formatOscillator(value)
+
 internal fun Mark.eachValue(slot: Int, action: (Double) -> Unit) {
     fun DoubleArray?.at(offset: Int) {
         val v = this?.getOrNull(slot - offset) ?: return
