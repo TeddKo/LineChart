@@ -160,4 +160,12 @@ class IndicatorStateTest {
             override fun legend(spec: ChartSpec, series: Series, marks: List<Mark>, i: Int) = AnnotatedString("")
         }.format(70.4637))
     }
+
+    @Test
+    fun remapPaneDeltas_keepsTheDeltaOfTheEqualIndicatorOfTheSameKind() {
+        val deltas = remapPaneDeltas(listOf(Rsi(14), Rsi(9)), listOf(60f, 0f), listOf(Rsi(9)))
+        assertEquals(listOf(0f), deltas)
+        assertEquals(listOf(60f, 0f), remapPaneDeltas(listOf(Rsi(14), Rsi(9)), listOf(60f, 0f), listOf(Rsi(14), Rsi(9))))
+        assertEquals(listOf(0f, 60f), remapPaneDeltas(listOf(Rsi(14), Rsi(9)), listOf(60f, 0f), listOf(Rsi(9), Rsi(14))))
+    }
 }

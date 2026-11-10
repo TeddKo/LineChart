@@ -633,14 +633,16 @@ public fun infiniteTransitionValue(
 }
 
 /**
- * Height [deltas] of the [previous] panes carried to the [next] panes, each taking the delta of the unclaimed previous pane of the same kind, the one at its own position first, and zero when there is none.
+ * Height [deltas] of the [previous] panes carried to the [next] panes, each taking the delta of the unclaimed previous pane that equals it, else the one of its kind at its own position, else any of its kind, and zero when there is none.
  */
 internal fun remapPaneDeltas(previous: List<PaneIndicator>, deltas: List<Float>, next: List<PaneIndicator>): List<Float> {
     if (deltas.isEmpty()) return deltas
     val claimed = BooleanArray(previous.size)
     return next.mapIndexed { k, pane ->
-        val sameKind = { j: Int -> !claimed[j] && previous[j]::class == pane::class }
-        val j = if (k < previous.size && sameKind(k)) k else previous.indices.firstOrNull(sameKind)
+        val free = { j: Int -> !claimed[j] && previous[j]::class == pane::class }
+        val j = previous.indices.firstOrNull { free(it) && previous[it] == pane }
+            ?: k.takeIf { it < previous.size && free(it) }
+            ?: previous.indices.firstOrNull(free)
         if (j == null) 0f else deltas.getOrElse(j) { 0f }.also { claimed[j] = true }
     }
 }
