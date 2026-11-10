@@ -100,8 +100,16 @@ class IndicatorStateTest {
     @Test
     fun scaleMarks_skipOverlaysOutsideTheScale() {
         val state = state()
-        state.setIndicators(listOf(MovingAverage(listOf(5)), Extending(0, scaled = false)), emptyList(), ChartSettings())
-        assertEquals(1, state.computed.scaleMarks.size)
+        state.setIndicators(listOf(BollingerBands(), Extending(0, scaled = false)), emptyList(), ChartSettings())
+        assertEquals(state.computed.overlayMarks[0], state.computed.scaleMarks)
+    }
+
+    @Test
+    fun scaleMarks_excludeMovingAverageButKeepBands() {
+        val state = state()
+        state.setIndicators(listOf(MovingAverage(listOf(5, 20)), BollingerBands()), emptyList(), ChartSettings())
+        val computed = state.computed
+        assertEquals(computed.overlayMarks[1], computed.scaleMarks)
     }
 
     @Test

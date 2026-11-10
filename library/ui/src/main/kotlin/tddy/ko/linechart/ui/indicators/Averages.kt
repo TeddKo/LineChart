@@ -74,7 +74,7 @@ internal val MaColors: List<Color> = listOf(
 internal val DefaultMaWidth: Dp = 1.dp
 
 /**
- * Moving average lines over the close on the main pane, one line per period counted in candles of the current timeframe.
+ * Moving average lines over the close on the main pane, one line per period counted in candles of the current timeframe, left out of the main Y range.
  *
  * @property periods window length of each line
  * @property type average formula
@@ -95,6 +95,8 @@ public class MovingAverage(
     }
 
     override val params: List<Any> get() = listOf(periods, type, colors, widths, visible)
+
+    override val inScale: Boolean get() = false
 
     private val shown: List<Int> get() = periods.indices.filter { visible.getOrElse(it) { true } }
 
