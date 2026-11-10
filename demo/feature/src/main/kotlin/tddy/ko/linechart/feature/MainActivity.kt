@@ -29,6 +29,9 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.Alignment
+import androidx.lifecycle.ViewModelProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -112,7 +115,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        setContent { LineChartTheme { Demo() } }
+        val vm = ViewModelProvider(this)[DemoViewModel::class.java]
+        setContent { LineChartTheme { Demo(vm) } }
     }
 }
 
@@ -130,7 +134,7 @@ private fun <T> Segmented(options: List<Pair<String, T>>, selected: T, onSelect:
 }
 
 @Composable
-private fun Demo() {
+private fun Demo(vm: DemoViewModel) {
     val random = remember { Random(7) }
     val now = remember { System.currentTimeMillis() }
     val daily = remember { dailySeries(random, now) }
@@ -140,6 +144,7 @@ private fun Demo() {
         mutableStateOf(mapOf(TimeframeUnit.Tick to 1, TimeframeUnit.Second to 1, TimeframeUnit.Minute to 5))
     }
     var sheetUnit by remember { mutableStateOf<TimeframeUnit?>(null) }
+    var showIndicators by rememberSaveable { mutableStateOf(false) }
     val timeframe = Timeframe(unit, counts[unit] ?: 1)
     var chartType by remember { mutableStateOf(ChartType.Candle) }
     var international by remember { mutableStateOf(false) }
@@ -159,6 +164,8 @@ private fun Demo() {
     }
 
     val state = rememberLineChartState(items)
+    val overlays = remember(vm.overlays, vm.maLines) { vm.builtOverlays() }
+    val panes = remember(vm.panes) { vm.builtPanes() }
     val colors = when {
         international && dark -> ChartColors.InternationalDark
         international -> ChartColors.International
@@ -177,7 +184,10 @@ private fun Demo() {
         Modifier.statusBarsPadding().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("DEMO/KRW", style = MaterialTheme.typography.titleMedium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("DEMO/KRW", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            TextButton(onClick = { showIndicators = true }) { Text("지표") }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(last?.let { String.format(Locale.ROOT, "%,.0f", it.cumulativeProfit) }.orEmpty(), style = MaterialTheme.typography.headlineMedium)
             Text(formatChange(change), style = MaterialTheme.typography.titleMedium, color = if (change >= 0) colors.up else colors.down)
@@ -198,15 +208,17 @@ private fun Demo() {
             }
         }
         LineChartPanel(
-            chartHeight = 360.dp,
             state = state,
             chartType = chartType,
             colors = colors,
+            overlays = overlays,
+            panes = panes,
             timeframe = timeframe,
             priceFormatter = { String.format(Locale.ROOT, "%,.0f", it) },
         )
     }
 
+    if (showIndicators) IndicatorSheet(vm, onDismiss = { showIndicators = false })
     sheetUnit?.let { target ->
         CountSheet(target, counts[target] ?: 1, onSelect = { counts = counts + (target to it) }, onDismiss = { sheetUnit = null })
     }
