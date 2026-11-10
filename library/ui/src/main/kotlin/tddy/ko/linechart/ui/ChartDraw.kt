@@ -2,9 +2,11 @@ package tddy.ko.linechart.ui
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -18,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.max
 
 internal val ChartTextStyle = TextStyle(fontSize = 10.sp, fontFeatureSettings = "tnum")
@@ -46,6 +49,26 @@ internal class ChartSpec(
     fun time(pattern: String, millis: Long): String =
         formats.getOrPut(pattern) { SimpleDateFormat(pattern, Locale.ROOT) }.format(Date(millis))
 }
+
+/**
+ * Indices of the highest and the lowest value inside [range], candles using high and low and other types the close.
+ */
+internal fun extremeIndices(items: List<ChartData>, range: IntRange, type: ChartType): Pair<Int, Int> {
+    var high = range.first
+    var low = range.first
+    for (i in range) {
+        val top = if (type == ChartType.Candle) items[i].high else items[i].cumulativeProfit
+        val bottom = if (type == ChartType.Candle) items[i].low else items[i].cumulativeProfit
+        if (top > (if (type == ChartType.Candle) items[high].high else items[high].cumulativeProfit)) high = i
+        if (bottom < (if (type == ChartType.Candle) items[low].low else items[low].cumulativeProfit)) low = i
+    }
+    return high to low
+}
+
+/**
+ * Candle body width in px for a slot width, at least one pixel.
+ */
+internal fun candleBodyWidth(slot: Float): Float = max(1f, slot * BODY_SHARE)
 
 private class View(val scroll: Float, val slot: Float, val visible: IntRange)
 
@@ -112,9 +135,116 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     }
 
     clipRect(0f, 0f, main.width * state.entry.value, size.height) {
-        clipRect(main.left, main.top, main.right, main.bottom) {
-            drawSeries(state, spec, view, range, main)
+        layout.volume?.let { volume ->
+            clipRect(volume.left, volume.top, volume.right, volume.bottom) { drawVolume(state, spec, view, volume) }
         }
+        clipRect(main.left, main.top, main.right, main.bottom) {
+            if (spec.type == ChartType.Candle) drawCandles(state, spec, view, range, main) else drawSeries(state, spec, view, range, main)
+            drawAverages(state, spec, view, range, main)
+        }
+    }
+    drawLastPrice(state, spec, range, layout, lineH, style)
+    drawExtremes(state, spec, view, range, main, lineH, style)
+}
+
+private fun DrawScope.drawCandles(state: LineChartState, spec: ChartSpec, view: View, range: YRange, main: Rect) {
+    val items = state.items
+    val n = items.size
+    val body = candleBodyWidth(view.slot)
+    val wick = max(1f, density)
+    for (i in view.visible) {
+        val item = items[i]
+        val color = spec.colors.forDirection(direction(items, i, ChartType.Candle))
+        val x = xOf(i, n, view.scroll, main.width, view.slot)
+        val open = yOf(item.open, range, main.top, main.height)
+        val close = yOf(item.cumulativeProfit, range, main.top, main.height)
+        val top = yOf(maxOf(item.high, item.open, item.cumulativeProfit), range, main.top, main.height)
+        val bottom = yOf(minOf(item.low, item.open, item.cumulativeProfit), range, main.top, main.height)
+        drawLine(color, Offset(x, top), Offset(x, bottom), wick)
+        if (view.slot >= WICK_ONLY_SLOT) {
+            drawRect(color, Offset(x - body / 2f, minOf(open, close)), Size(body, max(1f, abs(open - close))))
+        }
+    }
+}
+
+private fun DrawScope.drawVolume(state: LineChartState, spec: ChartSpec, view: View, volume: Rect) {
+    val items = state.items
+    val n = items.size
+    var peak = 0.0
+    for (i in view.visible) peak = max(peak, items[i].volume)
+    if (peak <= 0.0) return
+    val body = candleBodyWidth(view.slot)
+    for (i in view.visible) {
+        val height = (items[i].volume / peak).toFloat() * volume.height
+        val x = xOf(i, n, view.scroll, volume.width, view.slot)
+        val color = spec.colors.forDirection(direction(items, i, spec.type)).copy(alpha = VOLUME_ALPHA)
+        drawRect(color, Offset(x - body / 2f, volume.bottom - height), Size(body, height))
+    }
+}
+
+private fun DrawScope.drawAverages(state: LineChartState, spec: ChartSpec, view: View, range: YRange, main: Rect) {
+    val items = state.items
+    val n = items.size
+    val from = (view.visible.first - 1).coerceAtLeast(0)
+    val to = (view.visible.last + 1).coerceAtMost(n - 1)
+    val path = spec.path
+    spec.maPeriods.forEachIndexed { index, period ->
+        path.reset()
+        var started = false
+        for (i in from..to) {
+            val value = sma(state.series.prefix, i, period)
+            if (value.isNaN()) continue
+            val x = xOf(i, n, view.scroll, main.width, view.slot)
+            val y = yOf(value, range, main.top, main.height)
+            if (started) path.lineTo(x, y) else path.moveTo(x, y)
+            started = true
+        }
+        if (started) drawPath(path, spec.colors.maColor(index), style = Stroke(density, join = StrokeJoin.Round))
+    }
+}
+
+private fun DrawScope.drawLastPrice(
+    state: LineChartState,
+    spec: ChartSpec,
+    range: YRange,
+    layout: PaneLayout,
+    lineH: Float,
+    style: TextStyle,
+) {
+    val items = state.items
+    val main = layout.main
+    val last = items.lastIndex
+    val color = spec.colors.forDirection(direction(items, last, spec.type))
+    val y = yOf(items[last].cumulativeProfit, range, main.top, main.height).coerceIn(main.top, main.bottom)
+    drawLine(color, Offset(0f, y), Offset(main.right, y), density, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f * density, 4f * density)))
+    val text = spec.priceFormatter(items[last].cumulativeProfit)
+    val tagH = lineH + 2f * density
+    val top = (y - tagH / 2f).coerceIn(main.top, max(main.top, main.bottom - tagH))
+    drawRect(color, Offset(layout.axis.left, top), Size(layout.axis.width, tagH))
+    drawText(spec.measurer, text, Offset(layout.axis.left + 4f * density, top + density), style.copy(color = spec.colors.background))
+}
+
+private fun DrawScope.drawExtremes(
+    state: LineChartState,
+    spec: ChartSpec,
+    view: View,
+    range: YRange,
+    main: Rect,
+    lineH: Float,
+    style: TextStyle,
+) {
+    val items = state.items
+    val n = items.size
+    val (high, low) = extremeIndices(items, view.visible, spec.type)
+    val candle = spec.type == ChartType.Candle
+    for ((i, isHigh) in listOf(high to true, low to false)) {
+        val value = if (candle) (if (isHigh) items[i].high else items[i].low) else items[i].cumulativeProfit
+        val text = spec.priceFormatter(value)
+        val width = spec.measurer.measure(text, style).size.width
+        val x = (xOf(i, n, view.scroll, main.width, view.slot) - width / 2f).coerceIn(0f, max(0f, main.right - width))
+        val y = yOf(value, range, main.top, main.height)
+        val top = if (isHigh) (y - lineH - 2f * density).coerceAtLeast(main.top) else (y + 2f * density).coerceAtMost(main.bottom - lineH)
+        drawText(spec.measurer, text, Offset(x, top), style)
     }
 }
 
@@ -162,3 +292,6 @@ private fun DrawScope.drawSeries(
 }
 
 private const val AREA_ALPHA = 0.25f
+private const val BODY_SHARE = 0.7f
+private const val WICK_ONLY_SLOT = 3f
+private const val VOLUME_ALPHA = 0.5f

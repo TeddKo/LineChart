@@ -1,0 +1,31 @@
+package tddy.ko.linechart.ui
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class ChartDrawTest {
+
+    private val items = listOf(
+        ChartData(10.0, 1, open = 9.0, high = 12.0, low = 8.0),
+        ChartData(11.0, 2, open = 10.0, high = 15.0, low = 9.5),
+        ChartData(9.0, 3, open = 11.0, high = 11.5, low = 5.0),
+        ChartData(10.0, 4, open = 9.0, high = 15.0, low = 5.0),
+    )
+
+    @Test
+    fun extremeIndices_candleUsesHighAndLowKeepingFirstTie() {
+        assertEquals(1 to 2, extremeIndices(items, 0..3, ChartType.Candle))
+        assertEquals(3 to 3, extremeIndices(items, 3..3, ChartType.Candle))
+    }
+
+    @Test
+    fun extremeIndices_lineUsesClose() {
+        assertEquals(1 to 2, extremeIndices(items, 0..3, ChartType.Line))
+    }
+
+    @Test
+    fun candleBodyWidth_isSeventyPercentOfSlotWithOnePxMinimum() {
+        assertEquals(14f, candleBodyWidth(20f), 0.001f)
+        assertEquals(1f, candleBodyWidth(1f), 0f)
+    }
+}
