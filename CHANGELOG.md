@@ -19,6 +19,11 @@
 * Fewer than 2 items draw an empty box
 * The entry reveal plays once
 * One persistent `LineChartState` updated in place
+* An opaque `colors.background` is drawn behind the chart
+* A tap no longer selects a sample, a long press does
+* The `labels` argument of the legacy `LineChartState` constructor is ignored
+* `DragSelection.position` snaps to the candle center and `interpolatedValue` equals the value
+* The default palette follows the system dark mode
 * Gray split right of the crosshair removed
 * Built with Gradle 9.9.0, AGP 9.5.1, Kotlin 2.4.21 (API 2.2), compileSdk 37, Compose 1.12.1
 * material3 removed from the library; the POM lists only Compose ui, foundation and kotlin-stdlib

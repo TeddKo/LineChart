@@ -9,7 +9,7 @@ import kotlin.math.ceil
 internal class PaneLayout(val main: Rect, val volume: Rect?, val timeAxis: Rect, val axis: Rect)
 
 /**
- * Splits [width] x [height] into header, main, optional volume (20% of the body below the main pane), time axis and price axis.
+ * Split of [width] x [height] into header, main, optional volume (20% of the body below the main pane), time axis and price axis.
  */
 internal fun paneLayout(
     width: Float,

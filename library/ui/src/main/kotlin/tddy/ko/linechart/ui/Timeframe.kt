@@ -47,7 +47,7 @@ public class Timeframe(public val unit: TimeframeUnit, public val count: Int = 1
 }
 
 /**
- * Groups items in time order into candles of [timeframe] with open of the first item, high and low extremes, close of the last item and summed volume.
+ * Candles of [timeframe] grouped from the items in time order, with open of the first item, high and low extremes, close of the last item and summed volume.
  *
  * The candle date is the bucket start in [timeZone], and for Tick the date of the first item of each group of [Timeframe.count] items.
  * Aggregating the full list on every update suits modest histories, while apps with large histories keep the aggregated history and re-aggregate only the last bucket.

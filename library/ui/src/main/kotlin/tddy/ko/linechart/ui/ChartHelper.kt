@@ -463,7 +463,7 @@ public class LineChartState internal constructor(
     }
 
     /**
-     * Applies a pinch [zoom] around focal x [focalX] and a horizontal pan of [panX] px to the viewport.
+     * Viewport change by a pinch [zoom] around focal x [focalX] and a horizontal pan of [panX] px.
      */
     internal fun transform(focalX: Float, zoom: Float, panX: Float) {
         val width = plot.width

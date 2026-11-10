@@ -50,13 +50,15 @@ LineChartPanel(
 
 ## Timeframes
 
-`Timeframe` is a unit with a count: `Tick`, `Second1/5/10/30`, `Minute1/3/5/10/15/30/60`, `Day`, `Week`, `Month`, `Year`, or `Timeframe(TimeframeUnit.Minute, 7)`.
+`Timeframe` is a unit with a count: `Tick`, `Second1/5/10/30`, `Minute1/3/5/10/15/30/60`, `Day`, `Week`, `Month`, `Year`, or `Timeframe(TimeframeUnit.Minute, 7)`. Second and minute counts align per day from local midnight, so any count works.
 
 ```kotlin
 val candles = ticks.aggregate(Timeframe.Minute5)
 ```
 
-`aggregate` builds candles (first open, max high, min low, last close, summed volume, bucket start date) in the device time zone, weeks starting Monday. Moving averages count candles of the current timeframe, so MA5 on a weekly chart is five weeks, and the legend shows the unit (`MA5D`, `MA20분`). Aggregating the full list on every tick suits modest histories; with a large history keep the aggregated list and re-aggregate only the last bucket.
+`aggregate` builds candles (first open, max high, min low, last close, summed volume, bucket start date) in the device time zone, weeks starting Monday. A `Tick` group takes the date of its first item, so a growing last group keeps its identity. Moving averages count candles of the current timeframe, so MA5 on a weekly chart is five weeks, and the legend shows the unit (`MA5D`, `MA20분`). Aggregating the full list on every tick suits modest histories; with a large history keep the aggregated list and re-aggregate only the last bucket.
+
+Axis labels and the crosshair time tag are formatted in the device time zone. To show another zone, pass `timeFormatter`, for example `timeFormatter = { millis -> format.format(Date(millis)) }` with a `SimpleDateFormat` whose `timeZone` is set; `aggregate(timeframe, timeZone)` takes the zone for the buckets.
 
 ## Palettes
 
@@ -83,6 +85,7 @@ The default follows `isSystemInDarkTheme()`.
 
 * The last sample changed or was replaced in place: viewport unchanged
 * Samples appended: the chart follows the right edge while it is at the latest sample, and stays anchored when scrolled back or while the crosshair is on
+* The crosshair keeps the anchor while it is on; when it is released, the chart jumps back to the latest sample if it was following when the crosshair started, otherwise the anchor stays
 * A series that no longer contains the previous last `date` (for example a timeframe switch): the viewport resets to the latest sample and the zoom is kept
 * `maxDataPoints > 0` keeps the latest points only
 * `selected` emits only when the crosshair moves to another sample
@@ -101,6 +104,11 @@ The 1.0.0 API and binary signatures stay (`LineChartPanel`, `LineChart`, `rememb
 * Fewer than 2 items draw an empty box instead of nothing
 * The gray split right of the crosshair is gone
 * The entry reveal plays once, not on every state change
+* An opaque `colors.background` is drawn behind the chart; use `Color.Transparent` to show the parent
+* A tap no longer selects a sample, a long press does
+* The `labels` argument of the legacy `LineChartState` constructor is ignored, the axis shows the item number or the time
+* `DragSelection.position` snaps to the candle center and `interpolatedValue` equals the value
+* The default palette follows the system dark mode
 * material3 is no longer a transitive dependency; the POM lists only Compose ui, foundation and kotlin-stdlib
 
 ## Requirements
