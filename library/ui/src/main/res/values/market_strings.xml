@@ -4,4 +4,7 @@
     <string name="market_depth_description_one_side">Market depth, best price %1$s</string>
     <string name="market_depth_cursor">Price %1$s, cumulative %2$d</string>
     <string name="market_depth_cursor_gap">Price %1$s</string>
+    <string name="market_price">Price</string>
+    <string name="market_quantity">Quantity</string>
+    <string name="market_ladder_select">Select price</string>
 </resources>
