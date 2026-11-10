@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_depth_description">Market depth, best bid %1$s, best ask %2$s, spread %3$s</string>
+    <string name="market_depth_description_one_side">Market depth, best price %1$s</string>
+    <string name="market_depth_cursor">Price %1$s, cumulative %2$d</string>
+    <string name="market_depth_cursor_gap">Price %1$s</string>
+</resources>
