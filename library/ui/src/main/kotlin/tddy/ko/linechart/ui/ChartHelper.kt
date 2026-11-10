@@ -1,5 +1,7 @@
 package tddy.ko.linechart.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.DurationBasedAnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -372,13 +374,17 @@ public class LineChartState internal constructor(
 ) : DragHandler() {
     private var source: List<ChartData> = emptyList()
     private var sourceMax: Int = Int.MAX_VALUE
-    private var series: Series by mutableStateOf(Series(emptyList()))
+    internal var series: Series by mutableStateOf(Series(emptyList()))
+        private set
 
     internal val items: List<ChartData> get() = series.items
     internal var scroll: Float by mutableFloatStateOf(0f)
     internal var slot: Float by mutableFloatStateOf(Float.NaN)
     internal var crosshair: Offset by mutableStateOf(Offset.Unspecified)
     internal var plot: Rect = Rect.Zero
+    internal var frame: Frame? = null
+    internal var axisW: Float = 0f
+    internal val entry: Animatable<Float, AnimationVector1D> = Animatable(0f)
     internal var density: Float = 1f
     internal var scaleFactor: Int by mutableIntStateOf(scaleFactor)
 
@@ -505,7 +511,7 @@ public class LineChartState internal constructor(
         val slot = slotPx()
         val scroll = clampScroll(scroll, n, width, slot)
         val index = indexAt(offset.x - plot.left, n, scroll, width, slot)
-        val range = visibleYRange(items, visibleRange(n, scroll, width, slot), ChartType.Line)
+        val range = frame?.range ?: visibleYRange(items, visibleRange(n, scroll, width, slot), ChartType.Line)
         val close = items[index].cumulativeProfit
         val value = (close * scaleFactor).roundToLong()
         return DragSelection(

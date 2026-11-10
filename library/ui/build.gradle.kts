@@ -22,7 +22,6 @@ kotlin {
 dependencies {
     api(libs.androidx.compose.ui)
     api(libs.androidx.compose.foundation)
-    implementation(libs.androidx.compose.material3)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.runner)
