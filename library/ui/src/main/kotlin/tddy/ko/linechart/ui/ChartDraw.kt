@@ -69,6 +69,9 @@ internal class ChartSpec(
 
     fun lineColor(color: Color): Color = if (color == Color.Unspecified) colors.text else color
 
+    fun markColor(mark: LineMark): Color =
+        if (mark.direction != 0) colors.forDirection(mark.direction).copy(alpha = mark.alpha) else lineColor(mark.color)
+
     fun dash(density: Float): PathEffect {
         if (dashEffect == null || dashDensity != density) {
             dashDensity = density
@@ -112,7 +115,10 @@ internal data class ChartLabels(
     val close: String,
     val volume: String,
     val unit: String,
-)
+    val names: Map<String, String> = emptyMap(),
+) {
+    fun name(key: String): String = names[key] ?: key
+}
 
 /**
  * Viewport of a draw pass, [visible] being the item indices in the plot and [window] the slot indices including the blank slots.

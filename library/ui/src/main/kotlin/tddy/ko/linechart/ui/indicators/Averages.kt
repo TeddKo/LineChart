@@ -8,6 +8,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.sqrt
 
 /**
  * Simple moving average of [period] values, NaN until the first full window.
@@ -107,3 +108,37 @@ public class MovingAverage(
         }
     }
 }
+
+/**
+ * Population standard deviation over windows of [period] values, NaN until the first full window.
+ */
+internal fun stdev(values: DoubleArray, period: Int): DoubleArray {
+    val mean = sma(values, period)
+    val out = DoubleArray(values.size) { Double.NaN }
+    for (i in period - 1 until values.size) {
+        var sum = 0.0
+        for (k in i - period + 1..i) sum += (values[k] - mean[i]) * (values[k] - mean[i])
+        out[i] = sqrt(sum / period)
+    }
+    return out
+}
+
+private fun windowExtreme(values: DoubleArray, period: Int, better: (Double, Double) -> Boolean): DoubleArray {
+    val out = DoubleArray(values.size) { Double.NaN }
+    for (i in period - 1 until values.size) {
+        var best = values[i]
+        for (k in i - period + 1 until i) if (better(values[k], best)) best = values[k]
+        out[i] = best
+    }
+    return out
+}
+
+/**
+ * Highest value of each window of [period] values, NaN until the first full window.
+ */
+internal fun highest(values: DoubleArray, period: Int): DoubleArray = windowExtreme(values, period) { a, b -> a > b }
+
+/**
+ * Lowest value of each window of [period] values, NaN until the first full window.
+ */
+internal fun lowest(values: DoubleArray, period: Int): DoubleArray = windowExtreme(values, period) { a, b -> a < b }

@@ -17,6 +17,7 @@ internal class Series(val items: List<ChartData>) {
     val high: DoubleArray by lazy { DoubleArray(items.size) { items[it].high } }
     val low: DoubleArray by lazy { DoubleArray(items.size) { items[it].low } }
     val volume: DoubleArray by lazy { DoubleArray(items.size) { items[it].volume } }
+    val tradedValue: DoubleArray by lazy { DoubleArray(items.size) { if (items[it].value > 0.0) items[it].value else items[it].cumulativeProfit * items[it].volume } }
     val labels: List<String> by lazy { List(items.size) { (it + 1).toString() } }
 
     init {

@@ -2,6 +2,9 @@ package tddy.ko.linechart.ui
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
 import kotlin.math.max
@@ -12,7 +15,8 @@ import kotlin.math.max
 internal sealed class Mark
 
 /**
- * Polyline of [values], broken at NaN and drawn as steps when [step]; an unspecified [color] resolves to the text color.
+ * Polyline of [values], broken at NaN and drawn as steps when [step]; an unspecified [color] resolves to the text color and a non-zero [direction] to the up or down color at [alpha].
+ * An empty [label] leaves the line unnamed in the legend.
  */
 internal class LineMark(
     val label: String,
@@ -21,6 +25,8 @@ internal class LineMark(
     val width: Dp,
     val offset: Int = 0,
     val step: Boolean = false,
+    val direction: Int = 0,
+    val alpha: Float = 1f,
 ) : Mark()
 
 internal enum class Tone { Sign, Direction }
@@ -31,9 +37,9 @@ internal enum class Tone { Sign, Direction }
 internal class BarMark(val values: DoubleArray, val tone: Tone) : Mark()
 
 /**
- * Area between [a] and [b], or between [a] and zero when [b] is null, in [color] or in up and down colors when it is null.
+ * Area between [a] and [b], or between [a] and zero when [b] is null, in [color] or in up and down colors at [alpha] when it is null.
  */
-internal class FillMark(val a: DoubleArray, val b: DoubleArray?, val color: Color?, val offset: Int = 0) : Mark()
+internal class FillMark(val a: DoubleArray, val b: DoubleArray?, val color: Color?, val offset: Int = 0, val alpha: Float = 0.6f) : Mark()
 
 /**
  * Dots of [values], above the candle (down color) where [above] is set and below it (up color) otherwise.
@@ -141,4 +147,26 @@ internal fun paneYRange(marks: List<Mark>, visible: IntRange, scale: PaneScale, 
         return YRange(min - delta, max + delta)
     }
     return YRange(min - span * 0.05, max + span * 0.05)
+}
+
+/**
+ * One-line legend of an indicator named by [key] followed by [args], each line and sign histogram of [marks] with its value at [i] through [format], in the color it is drawn in.
+ */
+internal fun legendLine(spec: ChartSpec, key: String, args: String, marks: List<Mark>, i: Int, format: (Double) -> String): AnnotatedString = buildAnnotatedString {
+    withStyle(SpanStyle(color = spec.colors.text)) { append("${spec.labels.name(key)}$args  ") }
+    for (mark in marks) {
+        when {
+            mark is LineMark -> {
+                val value = mark.values.getOrElse(i - mark.offset) { Double.NaN }
+                val name = if (mark.label.isEmpty()) "" else "${spec.labels.name(mark.label)} "
+                withStyle(SpanStyle(color = spec.markColor(mark))) { append("$name${if (value.isNaN()) "-" else format(value)}  ") }
+            }
+            mark is BarMark && mark.tone == Tone.Sign -> {
+                val value = mark.values.getOrElse(i) { Double.NaN }
+                withStyle(SpanStyle(color = spec.colors.forDirection(value.compareTo(0.0)))) {
+                    append("${spec.labels.name("osc")} ${if (value.isNaN()) "-" else format(value)}  ")
+                }
+            }
+        }
+    }
 }

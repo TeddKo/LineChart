@@ -57,7 +57,7 @@ private fun DrawScope.drawLineMark(mark: LineMark, spec: ChartSpec, pane: PaneCo
         pen = true
         previousY = y
     }
-    drawPath(path, spec.lineColor(mark.color), style = Stroke(mark.width.toPx(), join = StrokeJoin.Round))
+    drawPath(path, spec.markColor(mark), style = Stroke(mark.width.toPx(), join = StrokeJoin.Round))
 }
 
 private const val BAR_DIRECTION_ALPHA = 0.5f
@@ -95,7 +95,7 @@ private fun DrawScope.drawFillMark(mark: FillMark, spec: ChartSpec, pane: PaneCo
         for (j in start + 1..end) path.lineTo(pane.x(j), pane.y(a(j)))
         for (j in end downTo start) path.lineTo(pane.x(j), pane.y(b(j)))
         path.close()
-        drawPath(path, mark.color ?: spec.colors.forDirection(tone).copy(alpha = BAR_SIGN_ALPHA))
+        drawPath(path, mark.color ?: spec.colors.forDirection(tone).copy(alpha = mark.alpha))
         start = -1
     }
     for (j in pane.from..pane.to) {
