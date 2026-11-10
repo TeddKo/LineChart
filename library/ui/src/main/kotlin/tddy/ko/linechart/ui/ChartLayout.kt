@@ -74,3 +74,15 @@ internal fun axisWidth(labelWidth: Float, density: Float): Float {
     val step = 4f * density
     return ceil((labelWidth + 8f * density) / step) * step
 }
+
+/**
+ * Index and top of each label of height [lineH] centered on its entry of [ys], kept inside [top] to [bottom] and dropped when closer than [lineH] to the label kept before it.
+ */
+internal fun labelTops(ys: List<Float>, lineH: Float, top: Float, bottom: Float): List<Pair<Int, Float>> {
+    val kept = ArrayList<Pair<Int, Float>>()
+    ys.forEachIndexed { k, y ->
+        val labelTop = (y - lineH / 2f).coerceIn(top, maxOf(top, bottom - lineH))
+        if (kept.isEmpty() || abs(labelTop - kept.last().second) >= lineH) kept += k to labelTop
+    }
+    return kept
+}
