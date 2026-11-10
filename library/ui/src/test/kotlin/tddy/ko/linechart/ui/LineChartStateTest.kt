@@ -65,6 +65,50 @@ class LineChartStateTest {
     }
 
     @Test
+    fun update_crosshairReleaseResumesFollowingWhenItStartedAtLatest() {
+        val state = state(1, 2, 3)
+        state.onDragStart(Offset(10f, 10f))
+        state.update(items(1, 2, 3, 4), Int.MAX_VALUE)
+        state.update(items(1, 2, 3, 4, 5), Int.MAX_VALUE)
+        assertEquals(2f, state.scroll, 0f)
+        state.onDragEnd()
+        assertEquals(0f, state.scroll, 0f)
+    }
+
+    @Test
+    fun update_crosshairReleaseKeepsTheAnchorWhenItStartedScrolledBack() {
+        val state = state(1, 2, 3)
+        state.scroll = 5f
+        state.onDragStart(Offset(10f, 10f))
+        state.update(items(1, 2, 3, 4), Int.MAX_VALUE)
+        state.onDragEnd()
+        assertEquals(6f, state.scroll, 0f)
+    }
+
+    @Test
+    fun update_clampsStoredScrollWhenEverythingFits() {
+        val state = state(1, 2, 3)
+        state.plot = Rect(0f, 0f, 1000f, 200f)
+        state.density = 1f
+        state.onDragStart(Offset(10f, 10f))
+        state.update(items(1, 2, 3, 4), Int.MAX_VALUE)
+        state.update(items(1, 2, 3, 4, 5), Int.MAX_VALUE)
+        assertEquals(0f, state.scroll, 0f)
+    }
+
+    @Test
+    fun transform_ignoresNonFiniteInput() {
+        val state = state(1, 2, 3)
+        state.plot = Rect(0f, 0f, 20f, 200f)
+        state.density = 1f
+        state.scroll = 1f
+        state.transform(Float.NaN, 1f, 5f)
+        state.transform(10f, Float.NaN, 5f)
+        state.transform(10f, 1f, Float.POSITIVE_INFINITY)
+        assertEquals(1f, state.scroll, 0f)
+    }
+
+    @Test
     fun update_resetsScrollButKeepsSlotWhenSeriesIsReplaced() {
         val state = state(1, 2, 3)
         state.scroll = 5f

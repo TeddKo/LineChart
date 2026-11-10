@@ -72,6 +72,8 @@ internal fun appendedCount(old: List<ChartData>, new: List<ChartData>): Int {
  */
 internal fun nextScroll(scroll: Float, appended: Int, crosshairActive: Boolean): Float = when {
     appended < 0 -> 0f
-    scroll <= 0.5f && !crosshairActive -> scroll
+    scroll <= FOLLOW_SCROLL && !crosshairActive -> scroll
     else -> scroll + appended
 }
+
+internal const val FOLLOW_SCROLL = 0.5f

@@ -379,6 +379,7 @@ public class LineChartState internal constructor(
 
     internal val items: List<ChartData> get() = series.items
     internal var scroll: Float by mutableFloatStateOf(0f)
+    private var followOnRelease = false
     internal var slot: Float by mutableFloatStateOf(Float.NaN)
     internal var crosshair: Offset by mutableStateOf(Offset.Unspecified)
     internal var plot: Rect = Rect.Zero
@@ -448,8 +449,10 @@ public class LineChartState internal constructor(
         source = items
         sourceMax = maxDataPoints
         val limited = if (maxDataPoints > 0 && items.size > maxDataPoints) items.takeLast(maxDataPoints) else items
-        scroll = nextScroll(scroll, appendedCount(this.items, limited), crosshair.isSpecified)
+        val next = nextScroll(scroll, appendedCount(this.items, limited), crosshair.isSpecified)
         series = Series(limited)
+        val width = plot.width
+        scroll = if (width > 0f) clampScroll(next, limited.size, width, slotFor(width)) else next
     }
 
     internal fun slotPx(): Float = slotFor(plot.width)
@@ -464,7 +467,7 @@ public class LineChartState internal constructor(
      */
     internal fun transform(focalX: Float, zoom: Float, panX: Float) {
         val width = plot.width
-        if (itemCount == 0 || width <= 0f) return
+        if (itemCount == 0 || width <= 0f || !focalX.isFinite() || !zoom.isFinite() || !panX.isFinite()) return
         val old = slotPx()
         val maxSlot = MAX_SLOT_DP * density
         val new = (old * zoom).coerceIn(minSlot(width, itemCount, MIN_SLOT_DP * density, maxSlot), maxSlot)
@@ -526,6 +529,7 @@ public class LineChartState internal constructor(
     }
 
     override fun onDragStart(offset: Offset) {
+        followOnRelease = scroll <= FOLLOW_SCROLL
         crosshair = offset
         super.onDragStart(offset)
     }
@@ -537,6 +541,7 @@ public class LineChartState internal constructor(
 
     override fun onDragEnd() {
         crosshair = Offset.Unspecified
+        if (followOnRelease) scroll = 0f
         super.onDragEnd()
     }
 }
