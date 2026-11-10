@@ -46,12 +46,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 * Gray split right of the crosshair removed
 * Crosshair snaps to the candle center and its tags are clamped to the plot
 * Division by zero in change-based indicators (Roc, Disparity, Trix, Sonar) no longer produces infinite values, gaps are drawn and the legend shows `-`
-* Header legend no longer jumps between wrap heights while the crosshair moves
-* Pane heights follow their indicator when another pane is removed or inserted
-* `DepthChart` no longer crashes on a narrow or very short layout and stops recomposing on every drag event
+* Header legend no longer jumps between wrap heights while the crosshair moves, and the plot lays out again when an overlay legend grows to another wrapped line
+* Pane heights follow their indicator when another pane is removed or inserted, matching an equal indicator before position and kind
+* `DepthChart` no longer crashes on a narrow or very short layout, including a narrow first frame, and stops recomposing on every drag event
 * `BaseLine.Custom` rejects non-finite values
 * Pane legend no longer overlaps the bars
-* Engine: a throwing fee policy leaves the book unchanged, a level quantity above `Int.MAX_VALUE` is capped
+* Engine: a throwing fee policy leaves the book unchanged, including on modify where the original order is kept, a level quantity above `Int.MAX_VALUE` is capped
 
 ### Removed
 * The 1.1 preview parameter `maPeriods` and `ChartColors.ma`; use `MovingAverage(periods, colors)`
