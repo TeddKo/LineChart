@@ -1,6 +1,8 @@
 package tddy.ko.linechart.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChartDrawTest {
@@ -67,5 +69,29 @@ class ChartHeaderTest {
     fun maLegend_appendsTheTimeframeUnitOrNothing() {
         assertEquals("MA5일", maLegend(5, "일"))
         assertEquals("MA20", maLegend(20, ""))
+    }
+}
+
+class TagOverlapTest {
+
+    @Test
+    fun overlapsTag_detectsIntersectingBoxes() {
+        assertTrue(overlapsTag(95f, 12f, 100f, 26f))
+        assertTrue(overlapsTag(120f, 12f, 100f, 26f))
+        assertTrue(overlapsTag(100f, 12f, 100f, 26f))
+    }
+
+    @Test
+    fun overlapsTag_touchingOrDistantBoxesDoNotCollide() {
+        assertFalse(overlapsTag(88f, 12f, 100f, 26f))
+        assertFalse(overlapsTag(126f, 12f, 100f, 26f))
+        assertFalse(overlapsTag(10f, 12f, 100f, 26f))
+    }
+
+    @Test
+    fun tagTop_centersOnYAndStaysInsideTheMainPane() {
+        assertEquals(87f, tagTop(100f, 26f, 30f, 280f), 0f)
+        assertEquals(30f, tagTop(32f, 26f, 30f, 280f), 0f)
+        assertEquals(254f, tagTop(279f, 26f, 30f, 280f), 0f)
     }
 }

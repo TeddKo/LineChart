@@ -173,6 +173,18 @@ private fun ChartSpec.lastPriceLines(value: Double, computed: Computed): List<St
     return lines
 }
 
+/**
+ * Top of an axis tag of height [tagH] centered on [y], kept inside [mainTop] to [mainBottom].
+ */
+internal fun tagTop(y: Float, tagH: Float, mainTop: Float, mainBottom: Float): Float =
+    (y - tagH / 2f).coerceIn(mainTop, max(mainTop, mainBottom - tagH))
+
+/**
+ * Whether a label box of height [labelH] at [labelTop] intersects a tag box of height [tagH] at [tagTop], touching edges not counting.
+ */
+internal fun overlapsTag(labelTop: Float, labelH: Float, tagTop: Float, tagH: Float): Boolean =
+    labelTop < tagTop + tagH && tagTop < labelTop + labelH
+
 private const val PANE_TICK_TARGET = 3
 
 private fun paneTicks(pane: PaneIndicator, range: YRange): List<Double> =
@@ -248,9 +260,11 @@ private fun DrawScope.drawPlot(state: LineChartState, spec: ChartSpec, frame: Fr
     val gridVertical = settings.grid == GridLines.Vertical || settings.grid == GridLines.Both
     val labelX = layout.axis.left + 4f * d
 
+    val tagBox = if (settings.currentPrice) lastPriceBox(state, spec, frame, lineH) else null
     for (tick in mainTicks(range, computed, state.yAxisTicksCount)) {
         val y = yOf(tick, range, main.top, main.height)
         if (gridHorizontal) drawLine(colors.grid, Offset(0f, y), Offset(main.right, y), d)
+        if (tagBox != null && overlapsTag(y - lineH / 2f, lineH, tagBox.first, tagBox.second)) continue
         drawText(spec.measurer, spec.priceText(tick, computed), Offset(labelX, y - lineH / 2f), style)
     }
     computed.panes.forEachIndexed { k, pane ->
@@ -339,17 +353,27 @@ private fun DrawScope.drawCandles(state: LineChartState, spec: ChartSpec, view: 
     }
 }
 
+private fun DrawScope.lastPriceY(state: LineChartState, frame: Frame): Float {
+    val main = frame.layout.main
+    return yOf(state.items.last().cumulativeProfit, frame.range, main.top, main.height).coerceIn(main.top, main.bottom)
+}
+
+private fun DrawScope.lastPriceBox(state: LineChartState, spec: ChartSpec, frame: Frame, lineH: Float): Pair<Float, Float> {
+    val main = frame.layout.main
+    val tagH = spec.lastPriceLines(state.items.last().cumulativeProfit, frame.computed).size * lineH + 2f * density
+    return tagTop(lastPriceY(state, frame), tagH, main.top, main.bottom) to tagH
+}
+
 private fun DrawScope.drawLastPrice(state: LineChartState, spec: ChartSpec, frame: Frame, lineH: Float, style: TextStyle) {
     val items = state.items
     val layout = frame.layout
     val main = layout.main
     val last = items.lastIndex
     val color = spec.colors.forDirection(direction(items, last, spec.type))
-    val y = yOf(items[last].cumulativeProfit, frame.range, main.top, main.height).coerceIn(main.top, main.bottom)
+    val y = lastPriceY(state, frame)
     drawLine(color, Offset(0f, y), Offset(main.right, y), density, pathEffect = spec.dash(density))
     val lines = spec.lastPriceLines(items[last].cumulativeProfit, frame.computed)
-    val tagH = lines.size * lineH + 2f * density
-    val top = (y - tagH / 2f).coerceIn(main.top, max(main.top, main.bottom - tagH))
+    val (top, tagH) = lastPriceBox(state, spec, frame, lineH)
     drawRect(color, Offset(layout.axis.left, top), Size(layout.axis.width, tagH))
     lines.forEachIndexed { k, line ->
         drawText(spec.measurer, line, Offset(layout.axis.left + 4f * density, top + density + k * lineH), style.copy(color = spec.colors.background))
