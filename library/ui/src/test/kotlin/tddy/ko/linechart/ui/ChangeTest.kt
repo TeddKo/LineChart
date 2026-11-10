@@ -75,4 +75,25 @@ class ChangeTest {
             }
         }
     }
+
+    @Test
+    fun closeRatio_zeroLaggedCloseIsNaN() {
+        val out = closeRatio(doubles(0.0, 1.0, 2.0), 1)
+        assertTrue(out[1].isNaN())
+    }
+
+    @Test
+    fun roc_overASeriesCrossingZeroStaysFinite() {
+        val series = seriesOf(doubles(2.0, 1.0, 0.0, 1.0, 2.0, 3.0))
+        val marks = Roc(1).marks(series, ChartSettings())
+        assertTrue(marks.lines()[0].values.none { it.isInfinite() })
+        val range = paneYRange(marks, 0..5, PaneScale.Around(0.0), doubleArrayOf(0.0))
+        assertTrue(range.min.isFinite() && range.max.isFinite())
+    }
+
+    @Test
+    fun disparity_zeroAverageIsNaN() {
+        val out = disparity(doubles(-1.0, 1.0, 3.0), 2)
+        assertTrue(out[1].isNaN())
+    }
 }

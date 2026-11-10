@@ -49,4 +49,10 @@ class PaneScaleTest {
         val r = paneYRange(listOf(line(1.0, 2.0, offset = 2)), 0..1, PaneScale.FromZero, DoubleArray(0))
         assertEquals(1.0, r.max, 0.0)
     }
+
+    @Test
+    fun infiniteValuesAreIgnored() {
+        val r = paneYRange(listOf(line(Double.POSITIVE_INFINITY, 10.0, 20.0)), 0..2, PaneScale.Auto, DoubleArray(0))
+        assertTrue(r.min.isFinite() && r.max.isFinite())
+    }
 }

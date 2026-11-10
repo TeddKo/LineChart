@@ -43,7 +43,7 @@ private fun DrawScope.drawLineMark(mark: LineMark, spec: ChartSpec, pane: PaneCo
     var previousY = 0f
     for (j in pane.from..pane.to) {
         val value = mark.values.getOrElse(j - mark.offset) { Double.NaN }
-        if (value.isNaN()) {
+        if (!value.isFinite()) {
             pen = false
             continue
         }
@@ -73,7 +73,7 @@ private fun DrawScope.drawBarMark(mark: BarMark, spec: ChartSpec, pane: PaneCont
     val zero = pane.y(0.0)
     for (j in pane.view.visible) {
         val value = mark.values.getOrElse(j) { Double.NaN }
-        if (value.isNaN()) continue
+        if (!value.isFinite()) continue
         val color = when (mark.tone) {
             Tone.Direction -> spec.colors.forDirection(direction(pane.series.items, j, spec.type)).copy(alpha = BAR_DIRECTION_ALPHA)
             Tone.Sign -> spec.colors.forDirection(value.compareTo(0.0)).copy(alpha = BAR_SIGN_ALPHA)
@@ -98,7 +98,7 @@ internal fun fillRuns(a: (Int) -> Double, b: (Int) -> Double, from: Int, to: Int
     for (j in from..to) {
         val av = a(j)
         val bv = b(j)
-        if (av.isNaN() || bv.isNaN()) {
+        if (!av.isFinite() || !bv.isFinite()) {
             if (start >= 0) runs += FillRun(start, j - 1, tone)
             start = -1
             continue
@@ -140,7 +140,7 @@ private fun DrawScope.drawFillMark(mark: FillMark, spec: ChartSpec, pane: PaneCo
 internal class DotSpot(val slot: Int, val above: Boolean)
 
 internal fun dotSpots(mark: DotMark, from: Int, to: Int): List<DotSpot> = (from..to).mapNotNull { j ->
-    if (mark.values.getOrElse(j - mark.offset) { Double.NaN }.isNaN()) null else DotSpot(j, mark.above.getOrElse(j - mark.offset) { false })
+    if (mark.values.getOrElse(j - mark.offset) { Double.NaN }.isFinite().not()) null else DotSpot(j, mark.above.getOrElse(j - mark.offset) { false })
 }
 
 private fun DrawScope.drawDotMark(mark: DotMark, spec: ChartSpec, pane: PaneContext) {

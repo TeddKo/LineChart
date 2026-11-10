@@ -120,7 +120,7 @@ internal fun PaneIndicator.format(value: Double): String = if (compact) formatCo
 internal fun Mark.eachValue(slot: Int, action: (Double) -> Unit) {
     fun DoubleArray?.at(offset: Int) {
         val v = this?.getOrNull(slot - offset) ?: return
-        if (!v.isNaN()) action(v)
+        if (v.isFinite()) action(v)
     }
     when (this) {
         is LineMark -> values.at(offset)
@@ -180,17 +180,22 @@ internal fun legendLine(spec: ChartSpec, key: String, args: String, marks: List<
             mark is LineMark -> {
                 val value = mark.values.getOrElse(i - mark.offset) { Double.NaN }
                 val name = if (mark.label.isEmpty()) "" else "${spec.labels.name(mark.label)} "
-                withStyle(SpanStyle(color = spec.markColor(mark))) { append("$name${if (value.isNaN()) "-" else format(value)}  ") }
+                withStyle(SpanStyle(color = spec.markColor(mark))) { append("$name${if (value.isFinite()) format(value) else "-"}  ") }
             }
             mark is BarMark && mark.tone == Tone.Sign -> {
                 val value = mark.values.getOrElse(i) { Double.NaN }
                 withStyle(SpanStyle(color = spec.colors.forDirection(value.compareTo(0.0)))) {
-                    append("${spec.labels.name("osc")} ${if (value.isNaN()) "-" else format(value)}  ")
+                    append("${spec.labels.name("osc")} ${if (value.isFinite()) format(value) else "-"}  ")
                 }
             }
         }
     }
 }
+
+/**
+ * This value, NaN when it is infinite.
+ */
+internal fun Double.finiteOrNaN(): Double = if (isFinite()) this else Double.NaN
 
 internal fun requirePositive(vararg values: Int) = require(values.all { it >= 1 }) { "periods must be positive" }
 

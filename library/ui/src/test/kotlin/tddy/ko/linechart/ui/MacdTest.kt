@@ -77,4 +77,12 @@ class MacdTest {
             }
         }
     }
+
+    @Test
+    fun trixAndSonar_neverProduceInfinity() {
+        val series = seriesOf(doubles(0.0, 0.0, 0.0, 5.0, 6.0))
+        for (pane in listOf(Trix(1, 1), Sonar(1, 1, 1))) {
+            pane.marks(series, ChartSettings()).lines().forEach { line -> assertTrue(line.values.none { it.isInfinite() }) }
+        }
+    }
 }

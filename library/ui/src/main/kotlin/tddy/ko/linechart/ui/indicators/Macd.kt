@@ -106,7 +106,7 @@ public class Trix(
 
     override fun marks(series: Series, settings: ChartSettings): List<Mark> {
         val triple = ema(ema(ema(series.close, period), period), period)
-        val trix = DoubleArray(triple.size) { if (it == 0) Double.NaN else 100.0 * (triple[it] - triple[it - 1]) / triple[it - 1] }
+        val trix = DoubleArray(triple.size) { if (it == 0) Double.NaN else (100.0 * (triple[it] - triple[it - 1]) / triple[it - 1]).finiteOrNaN() }
         return listOf(
             LineMark("", trix, colors.at(0), 1.dp),
             LineMark("signal", sma(trix, signal), colors.at(1), 1.dp),
@@ -141,7 +141,7 @@ public class Sonar(
 
     override fun marks(series: Series, settings: ChartSettings): List<Mark> {
         val average = ema(series.close, period)
-        val sonar = DoubleArray(average.size) { if (it < lag) Double.NaN else 100.0 * (average[it] - average[it - lag]) / average[it - lag] }
+        val sonar = DoubleArray(average.size) { if (it < lag) Double.NaN else (100.0 * (average[it] - average[it - lag]) / average[it - lag]).finiteOrNaN() }
         return listOf(
             LineMark("", sonar, colors.at(0), 1.dp),
             LineMark("signal", sma(sonar, signal), colors.at(1), 1.dp),

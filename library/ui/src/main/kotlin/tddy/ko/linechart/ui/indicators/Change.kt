@@ -12,14 +12,14 @@ internal val DisparityColors: List<Color> = listOf(Color(0xFF2EB82E), Color(0xFF
 /**
  * Close divided by the close [lag] candles earlier, NaN for the first [lag] candles.
  */
-internal fun closeRatio(close: DoubleArray, lag: Int): DoubleArray = DoubleArray(close.size) { if (it < lag) Double.NaN else close[it] / close[it - lag] }
+internal fun closeRatio(close: DoubleArray, lag: Int): DoubleArray = DoubleArray(close.size) { if (it < lag) Double.NaN else (close[it] / close[it - lag]).finiteOrNaN() }
 
 /**
  * Close as a percentage of its simple moving average of [period] candles.
  */
 internal fun disparity(close: DoubleArray, period: Int): DoubleArray {
     val average = sma(close, period)
-    return DoubleArray(close.size) { 100.0 * close[it] / average[it] }
+    return DoubleArray(close.size) { (100.0 * close[it] / average[it]).finiteOrNaN() }
 }
 
 /**
