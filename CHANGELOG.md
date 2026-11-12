@@ -2,6 +2,11 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.1.1
+
+### Changed
+* Line and Area charts split their color at a reference price: up color above, down color below. The reference is the base line, else the previous session close, else the first visible close. The pulse dot follows the same reference
+
 ## 1.1.0
 
 ### Added

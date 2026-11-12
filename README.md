@@ -29,9 +29,9 @@ Jetpack Compose trading chart with candles, 30 indicators, multi-pane layout, li
 
 ```kotlin
 dependencies {
-    implementation("io.github.teddko:linechart:1.1.0")
+    implementation("io.github.teddko:linechart:1.1.1")
     // optional, pure Kotlin matching engine for marketplace screens
-    implementation("io.github.teddko:linechart-orderbook:1.1.0")
+    implementation("io.github.teddko:linechart-orderbook:1.1.1")
 }
 ```
 
