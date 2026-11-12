@@ -75,8 +75,12 @@ LineChartPanel(
 | `ChartType` | Drawing |
 |---|---|
 | `Candle` | Body 70 percent of the slot, wick high to low, direction color; below 3 px only the wick |
-| `Line` | Smooth line colored by last versus first close, pulse on the last point |
-| `Area` | Line with a vertical gradient fill |
+| `Line` | Smooth line split at a reference price: up color above, down color below; pulse on the last point in the color of its side |
+| `Area` | Line with a vertical gradient fill, split the same way |
+
+The reference of `Line` and `Area` is the base line value (`ChartSettings.baseLine`), else the previous session close, else the first visible close. An intraday series without a previous day therefore compares against the first visible close.
+
+<p align="center"><img src="docs/images/area_split.jpg" width="280" alt="Daily Area chart, red above the previous close and blue below"/></p>
 
 | Palette | Up | Down |
 |---|---|---|
@@ -85,6 +89,16 @@ LineChartPanel(
 | `ChartColors.KoreanDark`, `ChartColors.InternationalDark` | dark-surface variants | |
 
 The default follows `isSystemInDarkTheme()`. Indicator colors are constructor parameters; direction and sign colors resolve from `ChartColors`.
+
+Any up and down colors work:
+
+```kotlin
+LineChartPanel(state = state, colors = ChartColors(up = Color(0xFFFF6A00), down = Color(0xFF7B61FF)))
+```
+
+The demo settings end every color row with a color wheel: angle picks the hue, distance from the center the saturation, and a slider the value.
+
+<p align="center"><img src="docs/images/color_picker.jpg" width="280" alt="Demo color wheel picker"/></p>
 
 ![Dark theme](docs/images/dark.jpg)
 
