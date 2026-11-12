@@ -213,6 +213,7 @@ The previous session close is the close of the last candle of the previous local
 
 * `chartHeight` (default 300.dp) is the height of the main chart area with its header and time axis
 * Every pane adds `paneHeight × weight` (default 80.dp × 1) plus a 4.dp gap, so the default Volume pane gives a total of 384.dp; dragging a separator moves height between the areas and keeps the total
+* With several panes the total can exceed the screen: place the panel in a vertically scrollable container (for example `Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding())`). Vertical drags on the chart scroll that parent, so the last pane and the time axis stay reachable above the navigation bar
 * Each pane has its own Y axis, one-line legend, and crosshair value tag with its own format; the legend strip sits above the plot
 * The header wraps its legend lines and keeps the tallest wrap seen until the series, the indicators or the width change, so the chart does not jump while the crosshair moves
 * Pane resize: long press within 12dp of a separator, then drag. Minimum 120dp for the main area and 40dp for a pane. Heights live in `LineChartState`, survive data updates and indicator parameter changes, follow their indicator when another pane is removed or inserted, and are not saved across recreation
