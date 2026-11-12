@@ -94,4 +94,11 @@ class TagOverlapTest {
         assertEquals(30f, tagTop(32f, 26f, 30f, 280f), 0f)
         assertEquals(254f, tagTop(279f, 26f, 30f, 280f), 0f)
     }
+
+    @Test
+    fun lineReference_prefersBaseThenPreviousCloseThenFirstVisibleClose() {
+        assertEquals(100.0, lineReference(base = 100.0, prevClose = 90.0, firstVisible = 80.0), 0.0)
+        assertEquals(90.0, lineReference(base = Double.NaN, prevClose = 90.0, firstVisible = 80.0), 0.0)
+        assertEquals(80.0, lineReference(base = Double.NaN, prevClose = Double.NaN, firstVisible = 80.0), 0.0)
+    }
 }

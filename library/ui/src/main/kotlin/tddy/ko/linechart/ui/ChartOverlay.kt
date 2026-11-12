@@ -124,7 +124,7 @@ private fun DrawScope.drawOverlayPlot(state: LineChartState, spec: ChartSpec, pu
         val x = xOf(n - 1, slots, scroll, main.width, slot)
         if (x in 0f..main.right) {
             val center = Offset(x, yOf(items.last().cumulativeProfit, frame.range, main.top, main.height))
-            val color = colors.forDirection(items.last().cumulativeProfit.compareTo(items.first().cumulativeProfit))
+            val color = colors.forDirection(items.last().cumulativeProfit.compareTo(frame.lineRef))
             drawCircle(color, 3.5f * d + 15f * d * pulse, center, alpha = PULSE_ALPHA * (1f - pulse))
             drawCircle(color, 3.5f * d, center)
         }

@@ -32,7 +32,16 @@ import kotlin.math.max
 internal val ChartTextStyle = TextStyle(fontSize = 10.sp, fontFeatureSettings = "tnum")
 
 /**
- * Geometry of the last main-layer draw, shared with the overlay layer and the gestures.
+ * Reference value splitting the line and area colors: the base line value, else the previous session close, else the first visible close.
+ */
+internal fun lineReference(base: Double, prevClose: Double, firstVisible: Double): Double = when {
+    base.isFinite() -> base
+    prevClose.isFinite() -> prevClose
+    else -> firstVisible
+}
+
+/**
+ * Geometry of the last main-layer draw, shared with the overlay layer and the gestures, with the [lineRef] value splitting the line and area colors.
  */
 internal class Frame(
     val layout: PaneLayout,
@@ -43,6 +52,7 @@ internal class Frame(
     val slot: Float,
     val computed: Computed,
     val plotLeft: Float,
+    val lineRef: Double,
 )
 
 /**
@@ -268,7 +278,8 @@ internal fun DrawScope.drawMain(state: LineChartState, spec: ChartSpec) {
     }
     val strip = if (settings.legend) lineH else 0f
     val bodies = layout.panes.map { paneBody(it, strip, if (settings.legend) 2f * d else 0f) }
-    val frame = Frame(layout, range, paneRanges, bodies, view.scroll, view.slot, computed, plotLeft)
+    val firstVisible = items[view.visible.first.coerceIn(0, items.lastIndex)].cumulativeProfit
+    val frame = Frame(layout, range, paneRanges, bodies, view.scroll, view.slot, computed, plotLeft, lineReference(computed.base, computed.prevClose, firstVisible))
     state.frame = frame
     translate(plotLeft, 0f) { drawPlot(state, spec, frame, view, lineH, style) }
 }
@@ -327,7 +338,7 @@ private fun DrawScope.drawPlot(state: LineChartState, spec: ChartSpec, frame: Fr
             }
         }
         clipRect(main.left, main.top, main.right, main.bottom) {
-            if (spec.type == ChartType.Candle) drawCandles(state, spec, view, range, main) else drawSeries(state, spec, view, range, main)
+            if (spec.type == ChartType.Candle) drawCandles(state, spec, view, range, main) else drawSeries(state, spec, view, range, main, frame.lineRef)
             val context = PaneContext(main, range, view, slots, series)
             for (marks in computed.overlayMarks) for (mark in marks) drawMark(mark, spec, context)
         }
@@ -430,6 +441,7 @@ private fun DrawScope.drawSeries(
     view: View,
     range: YRange,
     main: Rect,
+    reference: Double,
 ) {
     val items = state.items
     val n = items.size
@@ -454,17 +466,29 @@ private fun DrawScope.drawSeries(
         px = x
         py = y
     }
-    val color = spec.colors.forDirection(items.last().cumulativeProfit.compareTo(items.first().cumulativeProfit))
-    drawPath(path, color, style = Stroke(state.strokeWidth.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-    if (spec.type == ChartType.Area) {
+    val refY = yOf(reference, range, main.top, main.height).coerceIn(main.top, main.bottom)
+    val stroke = Stroke(state.strokeWidth.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+    val area = spec.type == ChartType.Area
+    for ((color, top, bottom) in listOf(Triple(spec.colors.up, main.top, refY), Triple(spec.colors.down, refY, main.bottom))) {
+        if (bottom <= top) continue
+        clipRect(main.left, top, main.right, bottom) {
+            drawPath(path, color, style = stroke)
+        }
+    }
+    if (area) {
         path.lineTo(px, main.bottom)
         path.lineTo(firstX, main.bottom)
         path.close()
-        drawPath(
-            path,
-            Brush.verticalGradient(listOf(color.copy(alpha = AREA_ALPHA), Color.Transparent), main.top, main.bottom),
-            style = Fill,
-        )
+        for ((color, top, bottom) in listOf(Triple(spec.colors.up, main.top, refY), Triple(spec.colors.down, refY, main.bottom))) {
+            if (bottom <= top) continue
+            clipRect(main.left, top, main.right, bottom) {
+                drawPath(
+                    path,
+                    Brush.verticalGradient(listOf(color.copy(alpha = AREA_ALPHA), Color.Transparent), main.top, main.bottom),
+                    style = Fill,
+                )
+            }
+        }
     }
 }
 
